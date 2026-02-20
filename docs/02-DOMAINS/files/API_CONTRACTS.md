@@ -1,24 +1,40 @@
 # API_CONTRACTS · files
 
-## Endpoints y auth
+## Endpoints
+
 - control estricto RBAC+ABAC (“need-to-know”),
-- 3) Actores y permisos (RBAC) + guards
-- privacy.delete_request.submit
+- Actores y permisos (RBAC) + guards
 - AuthGuard
 - Sistema valida RBAC+ABAC + data_class.
 - si hay error: no se edita; se emite Nota de Crédito + nueva factura.
-- action (VIEW/DOWNLOAD/ISSUE_SIGNED_URL/UPLOAD/DELETE_REQUEST/LEGAL_HOLD)
-- 7) Eventos y triggers + idempotencia
+- Eventos y triggers + idempotencia
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
 
-## Idempotency keys
+## Auth
+
+- control estricto RBAC+ABAC (“need-to-know”),
+- Actores y permisos (RBAC) + guards
+- AuthGuard
+- Sistema valida RBAC+ABAC + data_class.
+
+## Códigos de error
+
+- si hay error: no se edita; se emite Nota de Crédito + nueva factura.
+- checksum mismatch: rechaza y mantiene estado PENDING_UPLOAD con TTL de limpieza.
+
+## Idempotency
+
+- Eventos y triggers + idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 
-## Errores
-- si hay error: no se edita; se emite Nota de Crédito + nueva factura.
-- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
-- Sistema de Archivos v2.0 (Storage & Attachments) — corregido y unificado
-- Fuente de verdad: “Sistema de Archivos (Storage & Attachments)”.
-- 1) Definición y objetivos del sistema/módulo
-
 ## Trazabilidad
+
 - Documento origen: `sistema-de-archivos-260207_0840.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

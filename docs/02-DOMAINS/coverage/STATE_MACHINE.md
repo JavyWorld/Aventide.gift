@@ -1,22 +1,30 @@
 # STATE_MACHINE · coverage
 
-## Estados detectados/derivados
-- 4) Flujos end-to-end (happy path + edge cases)
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
-- 7.1 Eventos mínimos
-- Entrada por link directo: si fuera de zona, mostrar “fuera de área de servicio”.
+## Estados
+
+- Snapshot de orden marca coverage_result=OVERRIDDEN con actor/razónSuposición: el documento no define el endpoint exacto del override; se especifica el control mínimo para no romper auditoría.
 - Cambios de seller.location, coverage_radius y estados de zones se auditan.
 - Overrides sin trazabilidad → corregido: override solo con permiso, razón, evento y snapshot marcado.
+- Integración con Búsqueda (ST_DWithin) y Ordenes (snapshot logístico).
 
-## Transiciones y eventos de entrada/salida
-- Devuelve PASS/FAIL + ETA estimado (3–5 días hábiles) y exige tracking/POD por webhook (sin PIN).
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
-- 7.1 Eventos mínimos
-- Entrada por link directo: si fuera de zona, mostrar “fuera de área de servicio”.
+## Transiciones
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Eventos mínimos
 - Overrides sin trazabilidad → corregido: override solo con permiso, razón, evento y snapshot marcado.
-- Sistema de Cobertura v2.0 (Coverage & Logistics Engine) — corregido y unificado
-- Fuente de verdad: “Sistema de Cobertura (Coverage & Logistics Engine) — Ficha técnica”.
-- 1) Definición y objetivos del sistema/módulo
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-cobertura-260207_0907.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

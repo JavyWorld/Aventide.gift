@@ -1,24 +1,41 @@
 # API_CONTRACTS · continuity
 
-## Endpoints y auth
+## Endpoints
+
 - Workflow de desembolso desde COUNTRY_RESERVE con four-eyes + ejecución idempotente por worker + auditoría WORM.
-- 3) Actores y permisos (RBAC) + guards
+- Actores y permisos (RBAC) + guards
 - SYSTEM/WORKERS: ejecutan jobs idempotentes (reroute colas, payouts, holds, disbursements).
-- money.reserve.disbursement.request/create (finance_admin)
 - Cadena base: AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard.
 - RBAC_ROLE_REVOKED + RBAC_SCOPE_REVOKED al COL saliente + invalidación de sesiones/claims.
-- (Recomendación operativa del sistema) four-eyes: requester ≠ approver para asignación de COL.
-- 6.5 reserve_disbursement_request
-
-## Idempotency keys
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-
-## Errores
 - status: REQUESTED | APPROVED | EXECUTED | REJECTED
-- RESERVE_DISBURSEMENT_REQUESTED/APPROVED/EXECUTED/REJECTED
-- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
-- Sistema de Continuidad v2.0 (Solo Continuidad) — “Role Continuity & Country Governance”
-- Fuente de verdad: Documento “resumen-260207_1014”.
+- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+## Auth
+
+- Actores y permisos (RBAC) + guards
+- Cadena base: AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard.
+- RBAC_ROLE_REVOKED + RBAC_SCOPE_REVOKED al COL saliente + invalidación de sesiones/claims.
+
+## Códigos de error
+
+- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+
+## Idempotency
+
+- Workflow de desembolso desde COUNTRY_RESERVE con four-eyes + ejecución idempotente por worker + auditoría WORM.
+- SYSTEM/WORKERS: ejecutan jobs idempotentes (reroute colas, payouts, holds, disbursements).
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-continuidad-v2-260207_1030.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

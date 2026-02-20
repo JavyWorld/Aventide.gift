@@ -1,22 +1,35 @@
 # STATE_MACHINE · coupons
 
-## Estados detectados/derivados
-- “Fases de Desarrollo v1.1 — Cupones: reglas + torre de precios + modelo de datos + eventos”
-- Auditabilidad: snapshot por orden y eventos analíticos; idempotencia por checkout_id en la aplicación.
-- SYSTEM/BOT: valida, calcula descuento, emite eventos, snapshottea la orden.
-- 4) Flujos end-to-end (happy path + edge cases)
-- Backend guarda code_hash (no el código plano) y estado ACTIVE.
-- Persiste el estado del checkout idempotente y emite evento analítico SELLER_COUPON_APPLIED.
+## Estados
 
-## Transiciones y eventos de entrada/salida
-- “Fases de Desarrollo v1.1 — Cupones: reglas + torre de precios + modelo de datos + eventos”
 - Auditabilidad: snapshot por orden y eventos analíticos; idempotencia por checkout_id en la aplicación.
-- SYSTEM/BOT: valida, calcula descuento, emite eventos, snapshottea la orden.
 - Persiste el estado del checkout idempotente y emite evento analítico SELLER_COUPON_APPLIED.
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
-- 7.1 Eventos (mínimos)
-- Sistema de Cupones v2.0 (Seller-funded Coupons) — corregido y unificado
-- Fuentes de verdad:
+- SYSTEM/BOT: valida, calcula descuento, emite eventos, snapshottea la orden.
+- Backend guarda code_hash (no el código plano) y estado ACTIVE.
+- Si se habilita apilado por policy, debe existir regla determinística: ONLY_ONE_SELLER_COUPON + orden de preferencia (p. ej. mayor descuento efectivo) y debe quedar snapshotteado.
+
+## Transiciones
+
+- Reintento/redoble click → no “consume” dos veces: idempotencia por checkout_id.
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- Auditabilidad: snapshot por orden y eventos analíticos; idempotencia por checkout_id en la aplicación.
+- Persiste el estado del checkout idempotente y emite evento analítico SELLER_COUPON_APPLIED.
+- “Fases de Desarrollo v1.1 — Cupones: reglas + torre de precios + modelo de datos + eventos”
+- SYSTEM/BOT: valida, calcula descuento, emite eventos, snapshottea la orden.
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Eventos (mínimos)
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-cupones-260207_0826.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

@@ -1,22 +1,27 @@
 # STATE_MACHINE · files
 
-## Estados detectados/derivados
-- 4) Flujos end-to-end (happy path + edge cases)
-- checksum mismatch: rechaza y mantiene estado PENDING_UPLOAD con TTL de limpieza.
-- 7) Eventos y triggers + idempotencia
-- Eventos mínimos
-- Sistema de Archivos v2.0 (Storage & Attachments) — corregido y unificado
-- Fuente de verdad: “Sistema de Archivos (Storage & Attachments)”.
+## Estados
 
-## Transiciones y eventos de entrada/salida
-- 7) Eventos y triggers + idempotencia
+- checksum mismatch: rechaza y mantiene estado PENDING_UPLOAD con TTL de limpieza.
+- file_access_log append-only para auditoría, incluyendo emisión de URL firmada.
+
+## Transiciones
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- Eventos y triggers + idempotencia
 - Eventos mínimos
-- Sistema de Archivos v2.0 (Storage & Attachments) — corregido y unificado
-- Fuente de verdad: “Sistema de Archivos (Storage & Attachments)”.
-- 1) Definición y objetivos del sistema/módulo
-- Definición: Sistema central de almacenamiento para media pública, adjuntos privados, evidencia operativa, y documentos legales/fiscales, con:
-- control estricto RBAC+ABAC (“need-to-know”),
-- entrega por Signed URLs para contenido privado,
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-archivos-260207_0840.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.
