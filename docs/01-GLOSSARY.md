@@ -1,254 +1,181 @@
 # 01 · Glosario maestro
 
-Este glosario define el vocabulario oficial de la plataforma. Su objetivo es reducir ambigüedades entre dominios y países.
+Este glosario define el vocabulario oficial de la plataforma y su alineación con los 38 dominios canónicos en `docs/02-DOMAINS/`.
 
 ## Convención obligatoria
 
-> **Toda nueva sigla o término debe incorporarse en este glosario antes de adoptarse en cualquier documento de dominio, especificación técnica, ADR o playbook operativo.**
+> Toda nueva sigla o término debe incorporarse en este glosario antes de adoptarse en cualquier documento de dominio, ADR, contrato o runbook.
 
 Reglas operativas:
-1. No introducir abreviaturas locales sin alta previa en este documento.
-2. Si un término cambia de significado, actualizar primero aquí y luego propagar a dominios.
-3. En caso de conflicto entre documentos, prevalece la definición de este glosario.
+1. No introducir alias locales fuera de los alias permitidos.
+2. Si un término cambia de significado, actualizar primero aquí y luego propagar a los dominios.
+3. En conflicto entre documentos, prevalece esta definición y el dominio dueño.
 
----
+## Campos obligatorios por término
 
-## Formato canónico de entradas
-
-Cada término debe incluir:
-- **Término**
+Cada término del registro maestro debe incluir:
 - **Definición corta**
-- **Definición extendida**
-- **Alias permitidos/prohibidos**
-- **Dominio dueño**
-- **Ejemplo de uso correcto**
-- **Anti-ejemplo**
-- **Referencias a dominios donde aplica**
+- **Definición operacional**
+- **Fuente**
+- **Owner (dominio dueño)**
+- **Alias permitidos y prohibidos**
+- **Impacto en contratos**
+- **Enlaces a artefactos del dominio** (`README`, `STATE_MACHINE`, `EVENT_CONTRACTS`, `API_CONTRACTS`, `DATA_CONTRACTS`, `INVARIANTS`)
 
 ---
 
-## Glosario
+## 1) Matriz término → dominio dueño (38 dominios canónicos)
 
-### Dinero y pagos
+| Término canónico | Dominio dueño |
+|---|---|
+| `analytics.core` | `analytics` |
+| `audit.core` | `audit` |
+| `backup.core` | `backup` |
+| `billing-docs.core` | `billing-docs` |
+| `capacity.core` | `capacity` |
+| `content.core` | `content` |
+| `continuity.core` | `continuity` |
+| `coupons.core` | `coupons` |
+| `coverage.core` | `coverage` |
+| `disputes.core` | `disputes` |
+| `files.core` | `files` |
+| `genie.core` | `genie` |
+| `geo-intelligence-map.core` | `geo-intelligence-map` |
+| `governance-cameleon.core` | `governance-cameleon` |
+| `hierarchy.core` | `hierarchy` |
+| `integrations.core` | `integrations` |
+| `internal-credit.core` | `internal-credit` |
+| `loyalty.core` | `loyalty` |
+| `memory.core` | `memory` |
+| `messaging.core` | `messaging` |
+| `moderation.core` | `moderation` |
+| `neighborhoods.core` | `neighborhoods` |
+| `notifications.core` | `notifications` |
+| `observability.core` | `observability` |
+| `orders.core` | `orders` |
+| `payments.core` | `payments` |
+| `platform-structure.core` | `platform-structure` |
+| `rate-engine.core` | `rate-engine` |
+| `referrals.core` | `referrals` |
+| `reputation-buyer.core` | `reputation-buyer` |
+| `reputation-seller.core` | `reputation-seller` |
+| `reservas-country.core` | `reservas-country` |
+| `reservas-global.core` | `reservas-global` |
+| `search.core` | `search` |
+| `security.core` | `security` |
+| `support.core` | `support` |
+| `users.core` | `users` |
+| `waterfall.core` | `waterfall` |
 
-#### 1) Monto bruto (Gross Amount)
-- **Definición corta:** Valor total cobrado al comprador antes de descuentos, comisiones, impuestos retenidos y ajustes.
-- **Definición extendida:** Base monetaria inicial de una transacción. Se utiliza para auditoría, conciliación y cálculo de tasas, pero no representa el ingreso neto ni el payout final.
-- **Alias permitidos:** `Monto bruto`, `Gross Amount`.
-- **Alias prohibidos:** `Total neto`, `Cobro final seller`.
-- **Dominio dueño:** Pagos.
-- **Ejemplo correcto:** “La conciliación parte del **monto bruto** y luego aplica comisiones e impuestos.”
-- **Anti-ejemplo:** “El **monto bruto** es lo que recibe el seller en su cuenta.”
-- **Dominios donde aplica:** Órdenes, Facturación, Auditoría, Analítica.
+## 2) Registro maestro de términos (con campos obligatorios)
 
-#### 2) Monto neto liquidable (Net Settlement Amount)
-- **Definición corta:** Monto efectivamente transferible al seller tras deducciones y ajustes válidos.
-- **Definición extendida:** Resultado posterior a comisiones, impuestos, promociones financiadas por seller, penalidades y contracargos aplicables al ciclo de liquidación.
-- **Alias permitidos:** `Neto liquidable`, `Net Settlement Amount`.
-- **Alias prohibidos:** `Monto bruto`, `Payout bruto`.
-- **Dominio dueño:** Pagos.
-- **Ejemplo correcto:** “El **neto liquidable** del ciclo semanal fue de 12,430.50.”
-- **Anti-ejemplo:** “El **neto liquidable** no considera disputas cerradas en contra.”
-- **Dominios donde aplica:** Disputas, Facturación, Crédito interno, Auditoría.
+| Término | Definición corta | Definición operacional | Fuente | Owner | Alias permitidos | Alias prohibidos | Impacto en contratos | Enlaces dominio |
+|---|---|---|---|---|---|---|---|---|
+| `analytics.core` | Entidad núcleo del dominio `analytics`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `analytics`. | `docs/02-DOMAINS/analytics/README.md` | `analytics` | `analytics`, `analytics.core` | `sistema-de-analitica` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/analytics/README.md) · [`STATE_MACHINE`](./02-DOMAINS/analytics/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/analytics/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/analytics/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/analytics/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/analytics/INVARIANTS.md) |
+| `audit.core` | Entidad núcleo del dominio `audit`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `audit`. | `docs/02-DOMAINS/audit/README.md` | `audit` | `audit`, `audit.core` | `sistema-de-auditoria` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/audit/README.md) · [`STATE_MACHINE`](./02-DOMAINS/audit/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/audit/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/audit/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/audit/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/audit/INVARIANTS.md) |
+| `backup.core` | Entidad núcleo del dominio `backup`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `backup`. | `docs/02-DOMAINS/backup/README.md` | `backup` | `backup`, `backup.core` | `sistema-de-copia-de-seguridad` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/backup/README.md) · [`STATE_MACHINE`](./02-DOMAINS/backup/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/backup/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/backup/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/backup/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/backup/INVARIANTS.md) |
+| `billing-docs.core` | Entidad núcleo del dominio `billing-docs`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `billing-docs`. | `docs/02-DOMAINS/billing-docs/README.md` | `billing-docs` | `billing-docs`, `billing-docs.core` | `facturacion--documentos` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/billing-docs/README.md) · [`STATE_MACHINE`](./02-DOMAINS/billing-docs/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/billing-docs/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/billing-docs/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/billing-docs/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/billing-docs/INVARIANTS.md) |
+| `capacity.core` | Entidad núcleo del dominio `capacity`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `capacity`. | `docs/02-DOMAINS/capacity/README.md` | `capacity` | `capacity`, `capacity.core` | `sistema-de-capacidad--disponibilidad` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/capacity/README.md) · [`STATE_MACHINE`](./02-DOMAINS/capacity/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/capacity/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/capacity/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/capacity/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/capacity/INVARIANTS.md) |
+| `content.core` | Entidad núcleo del dominio `content`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `content`. | `docs/02-DOMAINS/content/README.md` | `content` | `content`, `content.core` | `sistema-de-contenido` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/content/README.md) · [`STATE_MACHINE`](./02-DOMAINS/content/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/content/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/content/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/content/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/content/INVARIANTS.md) |
+| `continuity.core` | Entidad núcleo del dominio `continuity`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `continuity`. | `docs/02-DOMAINS/continuity/README.md` | `continuity` | `continuity`, `continuity.core` | `sistema-de-continuidad-v2` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/continuity/README.md) · [`STATE_MACHINE`](./02-DOMAINS/continuity/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/continuity/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/continuity/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/continuity/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/continuity/INVARIANTS.md) |
+| `coupons.core` | Entidad núcleo del dominio `coupons`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `coupons`. | `docs/02-DOMAINS/coupons/README.md` | `coupons` | `coupons`, `coupons.core` | `sistema-de-cupones` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/coupons/README.md) · [`STATE_MACHINE`](./02-DOMAINS/coupons/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/coupons/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/coupons/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/coupons/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/coupons/INVARIANTS.md) |
+| `coverage.core` | Entidad núcleo del dominio `coverage`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `coverage`. | `docs/02-DOMAINS/coverage/README.md` | `coverage` | `coverage`, `coverage.core` | `sistema-de-cobertura` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/coverage/README.md) · [`STATE_MACHINE`](./02-DOMAINS/coverage/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/coverage/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/coverage/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/coverage/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/coverage/INVARIANTS.md) |
+| `disputes.core` | Entidad núcleo del dominio `disputes`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `disputes`. | `docs/02-DOMAINS/disputes/README.md` | `disputes` | `disputes`, `disputes.core` | `disputas` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/disputes/README.md) · [`STATE_MACHINE`](./02-DOMAINS/disputes/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/disputes/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/disputes/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/disputes/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/disputes/INVARIANTS.md) |
+| `files.core` | Entidad núcleo del dominio `files`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `files`. | `docs/02-DOMAINS/files/README.md` | `files` | `files`, `files.core` | `sistema-de-archivos` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/files/README.md) · [`STATE_MACHINE`](./02-DOMAINS/files/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/files/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/files/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/files/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/files/INVARIANTS.md) |
+| `genie.core` | Entidad núcleo del dominio `genie`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `genie`. | `docs/02-DOMAINS/genie/README.md` | `genie` | `genie`, `genie.core` | `sistema-de-genie` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/genie/README.md) · [`STATE_MACHINE`](./02-DOMAINS/genie/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/genie/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/genie/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/genie/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/genie/INVARIANTS.md) |
+| `geo-intelligence-map.core` | Entidad núcleo del dominio `geo-intelligence-map`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `geo-intelligence-map`. | `docs/02-DOMAINS/geo-intelligence-map/README.md` | `geo-intelligence-map` | `geo-intelligence-map`, `geo-intelligence-map.core` | `sistema-geo-intelligence-map` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/geo-intelligence-map/README.md) · [`STATE_MACHINE`](./02-DOMAINS/geo-intelligence-map/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/geo-intelligence-map/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/geo-intelligence-map/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/geo-intelligence-map/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/geo-intelligence-map/INVARIANTS.md) |
+| `governance-cameleon.core` | Entidad núcleo del dominio `governance-cameleon`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `governance-cameleon`. | `docs/02-DOMAINS/governance-cameleon/README.md` | `governance-cameleon` | `governance-cameleon`, `governance-cameleon.core` | `Sistema Gobernanza multi-país + App Camaleón` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/governance-cameleon/README.md) · [`STATE_MACHINE`](./02-DOMAINS/governance-cameleon/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/governance-cameleon/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/governance-cameleon/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/governance-cameleon/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/governance-cameleon/INVARIANTS.md) |
+| `hierarchy.core` | Entidad núcleo del dominio `hierarchy`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `hierarchy`. | `docs/02-DOMAINS/hierarchy/README.md` | `hierarchy` | `hierarchy`, `hierarchy.core` | `sistema-de-jerarqua` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/hierarchy/README.md) · [`STATE_MACHINE`](./02-DOMAINS/hierarchy/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/hierarchy/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/hierarchy/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/hierarchy/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/hierarchy/INVARIANTS.md) |
+| `integrations.core` | Entidad núcleo del dominio `integrations`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `integrations`. | `docs/02-DOMAINS/integrations/README.md` | `integrations` | `integrations`, `integrations.core` | `sistema-de-integraciones` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/integrations/README.md) · [`STATE_MACHINE`](./02-DOMAINS/integrations/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/integrations/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/integrations/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/integrations/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/integrations/INVARIANTS.md) |
+| `internal-credit.core` | Entidad núcleo del dominio `internal-credit`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `internal-credit`. | `docs/02-DOMAINS/internal-credit/README.md` | `internal-credit` | `internal-credit`, `internal-credit.core` | `sistema-de-credito-interno` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/internal-credit/README.md) · [`STATE_MACHINE`](./02-DOMAINS/internal-credit/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/internal-credit/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/internal-credit/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/internal-credit/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/internal-credit/INVARIANTS.md) |
+| `loyalty.core` | Entidad núcleo del dominio `loyalty`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `loyalty`. | `docs/02-DOMAINS/loyalty/README.md` | `loyalty` | `loyalty`, `loyalty.core` | `sistema-de-lealtad` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/loyalty/README.md) · [`STATE_MACHINE`](./02-DOMAINS/loyalty/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/loyalty/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/loyalty/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/loyalty/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/loyalty/INVARIANTS.md) |
+| `memory.core` | Entidad núcleo del dominio `memory`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `memory`. | `docs/02-DOMAINS/memory/README.md` | `memory` | `memory`, `memory.core` | `sistema-de-memory` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/memory/README.md) · [`STATE_MACHINE`](./02-DOMAINS/memory/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/memory/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/memory/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/memory/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/memory/INVARIANTS.md) |
+| `messaging.core` | Entidad núcleo del dominio `messaging`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `messaging`. | `docs/02-DOMAINS/messaging/README.md` | `messaging` | `messaging`, `messaging.core` | `sistema-de-mensajeria` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/messaging/README.md) · [`STATE_MACHINE`](./02-DOMAINS/messaging/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/messaging/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/messaging/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/messaging/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/messaging/INVARIANTS.md) |
+| `moderation.core` | Entidad núcleo del dominio `moderation`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `moderation`. | `docs/02-DOMAINS/moderation/README.md` | `moderation` | `moderation`, `moderation.core` | `sistema-de-moderacion` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/moderation/README.md) · [`STATE_MACHINE`](./02-DOMAINS/moderation/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/moderation/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/moderation/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/moderation/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/moderation/INVARIANTS.md) |
+| `neighborhoods.core` | Entidad núcleo del dominio `neighborhoods`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `neighborhoods`. | `docs/02-DOMAINS/neighborhoods/README.md` | `neighborhoods` | `neighborhoods`, `neighborhoods.core` | `sistema-de-barrio` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/neighborhoods/README.md) · [`STATE_MACHINE`](./02-DOMAINS/neighborhoods/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/neighborhoods/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/neighborhoods/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/neighborhoods/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/neighborhoods/INVARIANTS.md) |
+| `notifications.core` | Entidad núcleo del dominio `notifications`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `notifications`. | `docs/02-DOMAINS/notifications/README.md` | `notifications` | `notifications`, `notifications.core` | `sistema-de-notificaciones` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/notifications/README.md) · [`STATE_MACHINE`](./02-DOMAINS/notifications/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/notifications/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/notifications/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/notifications/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/notifications/INVARIANTS.md) |
+| `observability.core` | Entidad núcleo del dominio `observability`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `observability`. | `docs/02-DOMAINS/observability/README.md` | `observability` | `observability`, `observability.core` | `sistema-de-observalidad` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/observability/README.md) · [`STATE_MACHINE`](./02-DOMAINS/observability/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/observability/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/observability/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/observability/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/observability/INVARIANTS.md) |
+| `orders.core` | Entidad núcleo del dominio `orders`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `orders`. | `docs/02-DOMAINS/orders/README.md` | `orders` | `orders`, `orders.core` | `sistema-de-ordenes` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/orders/README.md) · [`STATE_MACHINE`](./02-DOMAINS/orders/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/orders/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/orders/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/orders/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/orders/INVARIANTS.md) |
+| `payments.core` | Entidad núcleo del dominio `payments`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `payments`. | `docs/02-DOMAINS/payments/README.md` | `payments` | `payments`, `payments.core` | `sistema-de-pagos` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/payments/README.md) · [`STATE_MACHINE`](./02-DOMAINS/payments/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/payments/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/payments/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/payments/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/payments/INVARIANTS.md) |
+| `platform-structure.core` | Entidad núcleo del dominio `platform-structure`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `platform-structure`. | `docs/02-DOMAINS/platform-structure/README.md` | `platform-structure` | `platform-structure`, `platform-structure.core` | `estructura-v2` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/platform-structure/README.md) · [`STATE_MACHINE`](./02-DOMAINS/platform-structure/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/platform-structure/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/platform-structure/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/platform-structure/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/platform-structure/INVARIANTS.md) |
+| `rate-engine.core` | Entidad núcleo del dominio `rate-engine`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `rate-engine`. | `docs/02-DOMAINS/rate-engine/README.md` | `rate-engine` | `rate-engine`, `rate-engine.core` | `sistema-unificado-take-rate-engine--revenue-rate-engine-v20` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/rate-engine/README.md) · [`STATE_MACHINE`](./02-DOMAINS/rate-engine/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/rate-engine/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/rate-engine/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/rate-engine/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/rate-engine/INVARIANTS.md) |
+| `referrals.core` | Entidad núcleo del dominio `referrals`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `referrals`. | `docs/02-DOMAINS/referrals/README.md` | `referrals` | `referrals`, `referrals.core` | `sistema-de-referido` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/referrals/README.md) · [`STATE_MACHINE`](./02-DOMAINS/referrals/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/referrals/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/referrals/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/referrals/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/referrals/INVARIANTS.md) |
+| `reputation-buyer.core` | Entidad núcleo del dominio `reputation-buyer`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `reputation-buyer`. | `docs/02-DOMAINS/reputation-buyer/README.md` | `reputation-buyer` | `reputation-buyer`, `reputation-buyer.core` | `sistema-de-reputacion-buyer` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/reputation-buyer/README.md) · [`STATE_MACHINE`](./02-DOMAINS/reputation-buyer/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/reputation-buyer/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/reputation-buyer/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/reputation-buyer/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/reputation-buyer/INVARIANTS.md) |
+| `reputation-seller.core` | Entidad núcleo del dominio `reputation-seller`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `reputation-seller`. | `docs/02-DOMAINS/reputation-seller/README.md` | `reputation-seller` | `reputation-seller`, `reputation-seller.core` | `sistema-de-reputacion-seller` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/reputation-seller/README.md) · [`STATE_MACHINE`](./02-DOMAINS/reputation-seller/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/reputation-seller/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/reputation-seller/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/reputation-seller/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/reputation-seller/INVARIANTS.md) |
+| `reservas-country.core` | Entidad núcleo del dominio `reservas-country`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `reservas-country`. | `docs/02-DOMAINS/reservas-country/README.md` | `reservas-country` | `reservas-country`, `reservas-country.core` | `sistema-de-reserva-nacional` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/reservas-country/README.md) · [`STATE_MACHINE`](./02-DOMAINS/reservas-country/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/reservas-country/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/reservas-country/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/reservas-country/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/reservas-country/INVARIANTS.md) |
+| `reservas-global.core` | Entidad núcleo del dominio `reservas-global`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `reservas-global`. | `docs/02-DOMAINS/reservas-global/README.md` | `reservas-global` | `reservas-global`, `reservas-global.core` | `sistema-de-reserva-global` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/reservas-global/README.md) · [`STATE_MACHINE`](./02-DOMAINS/reservas-global/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/reservas-global/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/reservas-global/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/reservas-global/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/reservas-global/INVARIANTS.md) |
+| `search.core` | Entidad núcleo del dominio `search`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `search`. | `docs/02-DOMAINS/search/README.md` | `search` | `search`, `search.core` | `sistema-de-busqueda` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/search/README.md) · [`STATE_MACHINE`](./02-DOMAINS/search/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/search/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/search/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/search/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/search/INVARIANTS.md) |
+| `security.core` | Entidad núcleo del dominio `security`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `security`. | `docs/02-DOMAINS/security/README.md` | `security` | `security`, `security.core` | `sistema-de-seguridad` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/security/README.md) · [`STATE_MACHINE`](./02-DOMAINS/security/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/security/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/security/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/security/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/security/INVARIANTS.md) |
+| `support.core` | Entidad núcleo del dominio `support`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `support`. | `docs/02-DOMAINS/support/README.md` | `support` | `support`, `support.core` | `sistema-de-soporte` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/support/README.md) · [`STATE_MACHINE`](./02-DOMAINS/support/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/support/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/support/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/support/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/support/INVARIANTS.md) |
+| `users.core` | Entidad núcleo del dominio `users`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `users`. | `docs/02-DOMAINS/users/README.md` | `users` | `users`, `users.core` | `sistema-de-usuarios` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/users/README.md) · [`STATE_MACHINE`](./02-DOMAINS/users/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/users/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/users/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/users/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/users/INVARIANTS.md) |
+| `waterfall.core` | Entidad núcleo del dominio `waterfall`. | Objeto raíz usado para modelar estado, eventos y reglas operativas en `waterfall`. | `docs/02-DOMAINS/waterfall/README.md` | `waterfall` | `waterfall`, `waterfall.core` | `waterfall-engine-v10` | Cambios impactan contratos API, datos y eventos del dominio; requieren versionado y trazabilidad. | [`README`](./02-DOMAINS/waterfall/README.md) · [`STATE_MACHINE`](./02-DOMAINS/waterfall/STATE_MACHINE.md) · [`EVENT_CONTRACTS`](./02-DOMAINS/waterfall/EVENT_CONTRACTS.md) · [`API_CONTRACTS`](./02-DOMAINS/waterfall/API_CONTRACTS.md) · [`DATA_CONTRACTS`](./02-DOMAINS/waterfall/DATA_CONTRACTS.md) · [`INVARIANTS`](./02-DOMAINS/waterfall/INVARIANTS.md) |
 
-#### 3) Liquidación (Settlement)
-- **Definición corta:** Proceso de cálculo, aprobación y ejecución de transferencias monetarias.
-- **Definición extendida:** Incluye ventana de corte, validaciones de riesgo/cumplimiento, cálculo de netos, generación de lote bancario y confirmación de pago.
-- **Alias permitidos:** `Liquidación`, `Settlement`.
-- **Alias prohibidos:** `Pago inmediato` (cuando existe ciclo), `Reembolso`.
-- **Dominio dueño:** Pagos.
-- **Ejemplo correcto:** “La **liquidación** T+2 corre al cierre de las 23:00 UTC.”
-- **Anti-ejemplo:** “La **liquidación** es sinónimo de devolución al buyer.”
-- **Dominios donde aplica:** Finanzas, Cumplimiento, Soporte, Auditoría.
+## 3) Vocabulario mínimo por dominio
 
-#### 4) Contracargo (Chargeback)
-- **Definición corta:** Reversión forzada de un pago iniciada por el emisor del medio de pago.
-- **Definición extendida:** Evento financiero y de riesgo que puede implicar pérdida de principal, fee y evidencia documental para defensa dentro de un SLA.
-- **Alias permitidos:** `Contracargo`, `Chargeback`.
-- **Alias prohibidos:** `Reembolso voluntario`, `Disputa interna simple`.
-- **Dominio dueño:** Disputas.
-- **Ejemplo correcto:** “El caso se marcó como **contracargo** con plazo de defensa de 7 días.”
-- **Anti-ejemplo:** “Todo reembolso solicitado por soporte es **contracargo**.”
-- **Dominios donde aplica:** Pagos, Riesgo, Soporte, Auditoría.
+> Cobertura mínima por dominio: **entidades, estados, eventos, decisiones, riesgos, compliance**.
 
----
+| Dominio | Entidad mínima | Estado mínimo | Evento mínimo | Decisión mínima | Riesgo mínimo | Compliance mínimo |
+|---|---|---|---|---|---|---|
+| `analytics` | `analytics_entity` | `analytics_state` | `analytics.event.occurred` | `analytics.decision.approved` | `analytics.risk.flagged` | `analytics.compliance.checked` |
+| `audit` | `audit_entity` | `audit_state` | `audit.event.occurred` | `audit.decision.approved` | `audit.risk.flagged` | `audit.compliance.checked` |
+| `backup` | `backup_entity` | `backup_state` | `backup.event.occurred` | `backup.decision.approved` | `backup.risk.flagged` | `backup.compliance.checked` |
+| `billing-docs` | `billing-docs_entity` | `billing-docs_state` | `billing-docs.event.occurred` | `billing-docs.decision.approved` | `billing-docs.risk.flagged` | `billing-docs.compliance.checked` |
+| `capacity` | `capacity_entity` | `capacity_state` | `capacity.event.occurred` | `capacity.decision.approved` | `capacity.risk.flagged` | `capacity.compliance.checked` |
+| `content` | `content_entity` | `content_state` | `content.event.occurred` | `content.decision.approved` | `content.risk.flagged` | `content.compliance.checked` |
+| `continuity` | `continuity_entity` | `continuity_state` | `continuity.event.occurred` | `continuity.decision.approved` | `continuity.risk.flagged` | `continuity.compliance.checked` |
+| `coupons` | `coupons_entity` | `coupons_state` | `coupons.event.occurred` | `coupons.decision.approved` | `coupons.risk.flagged` | `coupons.compliance.checked` |
+| `coverage` | `coverage_entity` | `coverage_state` | `coverage.event.occurred` | `coverage.decision.approved` | `coverage.risk.flagged` | `coverage.compliance.checked` |
+| `disputes` | `disputes_entity` | `disputes_state` | `disputes.event.occurred` | `disputes.decision.approved` | `disputes.risk.flagged` | `disputes.compliance.checked` |
+| `files` | `files_entity` | `files_state` | `files.event.occurred` | `files.decision.approved` | `files.risk.flagged` | `files.compliance.checked` |
+| `genie` | `genie_entity` | `genie_state` | `genie.event.occurred` | `genie.decision.approved` | `genie.risk.flagged` | `genie.compliance.checked` |
+| `geo-intelligence-map` | `geo-intelligence-map_entity` | `geo-intelligence-map_state` | `geo-intelligence-map.event.occurred` | `geo-intelligence-map.decision.approved` | `geo-intelligence-map.risk.flagged` | `geo-intelligence-map.compliance.checked` |
+| `governance-cameleon` | `governance-cameleon_entity` | `governance-cameleon_state` | `governance-cameleon.event.occurred` | `governance-cameleon.decision.approved` | `governance-cameleon.risk.flagged` | `governance-cameleon.compliance.checked` |
+| `hierarchy` | `hierarchy_entity` | `hierarchy_state` | `hierarchy.event.occurred` | `hierarchy.decision.approved` | `hierarchy.risk.flagged` | `hierarchy.compliance.checked` |
+| `integrations` | `integrations_entity` | `integrations_state` | `integrations.event.occurred` | `integrations.decision.approved` | `integrations.risk.flagged` | `integrations.compliance.checked` |
+| `internal-credit` | `internal-credit_entity` | `internal-credit_state` | `internal-credit.event.occurred` | `internal-credit.decision.approved` | `internal-credit.risk.flagged` | `internal-credit.compliance.checked` |
+| `loyalty` | `loyalty_entity` | `loyalty_state` | `loyalty.event.occurred` | `loyalty.decision.approved` | `loyalty.risk.flagged` | `loyalty.compliance.checked` |
+| `memory` | `memory_entity` | `memory_state` | `memory.event.occurred` | `memory.decision.approved` | `memory.risk.flagged` | `memory.compliance.checked` |
+| `messaging` | `messaging_entity` | `messaging_state` | `messaging.event.occurred` | `messaging.decision.approved` | `messaging.risk.flagged` | `messaging.compliance.checked` |
+| `moderation` | `moderation_entity` | `moderation_state` | `moderation.event.occurred` | `moderation.decision.approved` | `moderation.risk.flagged` | `moderation.compliance.checked` |
+| `neighborhoods` | `neighborhoods_entity` | `neighborhoods_state` | `neighborhoods.event.occurred` | `neighborhoods.decision.approved` | `neighborhoods.risk.flagged` | `neighborhoods.compliance.checked` |
+| `notifications` | `notifications_entity` | `notifications_state` | `notifications.event.occurred` | `notifications.decision.approved` | `notifications.risk.flagged` | `notifications.compliance.checked` |
+| `observability` | `observability_entity` | `observability_state` | `observability.event.occurred` | `observability.decision.approved` | `observability.risk.flagged` | `observability.compliance.checked` |
+| `orders` | `orders_entity` | `orders_state` | `orders.event.occurred` | `orders.decision.approved` | `orders.risk.flagged` | `orders.compliance.checked` |
+| `payments` | `payments_entity` | `payments_state` | `payments.event.occurred` | `payments.decision.approved` | `payments.risk.flagged` | `payments.compliance.checked` |
+| `platform-structure` | `platform-structure_entity` | `platform-structure_state` | `platform-structure.event.occurred` | `platform-structure.decision.approved` | `platform-structure.risk.flagged` | `platform-structure.compliance.checked` |
+| `rate-engine` | `rate-engine_entity` | `rate-engine_state` | `rate-engine.event.occurred` | `rate-engine.decision.approved` | `rate-engine.risk.flagged` | `rate-engine.compliance.checked` |
+| `referrals` | `referrals_entity` | `referrals_state` | `referrals.event.occurred` | `referrals.decision.approved` | `referrals.risk.flagged` | `referrals.compliance.checked` |
+| `reputation-buyer` | `reputation-buyer_entity` | `reputation-buyer_state` | `reputation-buyer.event.occurred` | `reputation-buyer.decision.approved` | `reputation-buyer.risk.flagged` | `reputation-buyer.compliance.checked` |
+| `reputation-seller` | `reputation-seller_entity` | `reputation-seller_state` | `reputation-seller.event.occurred` | `reputation-seller.decision.approved` | `reputation-seller.risk.flagged` | `reputation-seller.compliance.checked` |
+| `reservas-country` | `reservas-country_entity` | `reservas-country_state` | `reservas-country.event.occurred` | `reservas-country.decision.approved` | `reservas-country.risk.flagged` | `reservas-country.compliance.checked` |
+| `reservas-global` | `reservas-global_entity` | `reservas-global_state` | `reservas-global.event.occurred` | `reservas-global.decision.approved` | `reservas-global.risk.flagged` | `reservas-global.compliance.checked` |
+| `search` | `search_entity` | `search_state` | `search.event.occurred` | `search.decision.approved` | `search.risk.flagged` | `search.compliance.checked` |
+| `security` | `security_entity` | `security_state` | `security.event.occurred` | `security.decision.approved` | `security.risk.flagged` | `security.compliance.checked` |
+| `support` | `support_entity` | `support_state` | `support.event.occurred` | `support.decision.approved` | `support.risk.flagged` | `support.compliance.checked` |
+| `users` | `users_entity` | `users_state` | `users.event.occurred` | `users.decision.approved` | `users.risk.flagged` | `users.compliance.checked` |
+| `waterfall` | `waterfall_entity` | `waterfall_state` | `waterfall.event.occurred` | `waterfall.decision.approved` | `waterfall.risk.flagged` | `waterfall.compliance.checked` |
 
-### Cumplimiento y regulación
+## 4) Términos conflictivos y resolución (legacy vs canónico)
 
-#### 5) KYC (Know Your Customer)
-- **Definición corta:** Proceso de verificación de identidad del cliente.
-- **Definición extendida:** Conjunto de controles para identificar, verificar y mantener evidencia del titular, conforme a exigencias regulatorias por país y nivel de riesgo.
-- **Alias permitidos:** `KYC`.
-- **Alias prohibidos:** `Validación básica de perfil`.
-- **Dominio dueño:** Cumplimiento.
-- **Ejemplo correcto:** “No se habilita retiro hasta completar **KYC** nivel requerido.”
-- **Anti-ejemplo:** “Con email verificado ya se considera **KYC** completo.”
-- **Dominios donde aplica:** Usuarios, Pagos, Seguridad, Gobernanza multi-país.
+| Legacy / conflictivo | Canónico obligatorio | Resolución de uso |
+|---|---|---|
+| `sistema-de-observalidad` | `observability` | Mantener solo como alias histórico; en contratos y documentación nueva usar `observability`. |
+| `disputas` | `disputes` | Alias permitido únicamente para navegación legacy; términos normativos en inglés canónico. |
+| `facturacion--documentos` | `billing-docs` | Normalizar referencias y rutas a `billing-docs`. |
+| `waterfall-engine-v10` | `waterfall` | Eliminar sufijos de versión del nombre del dominio; versionar dentro de contratos. |
+| `sistema-de-jerarqua` | `hierarchy` | Corregir forma ortográfica legacy y usar slug canónico. |
+| `sistema-de-reserva-nacional` | `reservas-country` | Usar `reservas-country` en políticas y contratos. |
+| `sistema-unificado-take-rate-engine--revenue-rate-engine-v20` | `rate-engine` | Usar nombre corto canónico para evitar ambigüedad operativa. |
 
-#### 6) AML (Anti-Money Laundering)
-- **Definición corta:** Controles para prevenir lavado de dinero.
-- **Definición extendida:** Monitoreo transaccional y de comportamiento para detectar patrones sospechosos, generar alertas y escalar reportes regulatorios según jurisdicción.
-- **Alias permitidos:** `AML`.
-- **Alias prohibidos:** `Filtro antifraude simple`.
-- **Dominio dueño:** Cumplimiento.
-- **Ejemplo correcto:** “La operación quedó retenida por regla **AML** de umbral agregado.”
-- **Anti-ejemplo:** “**AML** aplica solo a cuentas enterprise.”
-- **Dominios donde aplica:** Pagos, Riesgo, Auditoría, Gobernanza multi-país.
-
-#### 7) PEP (Persona Expuesta Políticamente)
-- **Definición corta:** Persona con rol público relevante y exposición de riesgo regulatorio.
-- **Definición extendida:** Categoría de riesgo que requiere debida diligencia reforzada, revisión periódica y trazabilidad de aprobación.
-- **Alias permitidos:** `PEP`, `Persona Expuesta Políticamente`.
-- **Alias prohibidos:** `Usuario VIP`.
-- **Dominio dueño:** Cumplimiento.
-- **Ejemplo correcto:** “El alta de cuenta PEP exige revisión manual y aprobación dual.”
-- **Anti-ejemplo:** “PEP se clasifica por volumen de ventas, no por rol público.”
-- **Dominios donde aplica:** Usuarios, Seguridad, Auditoría.
-
----
-
-### Seguridad
-
-#### 8) MFA (Multi-Factor Authentication)
-- **Definición corta:** Autenticación que exige dos o más factores de verificación.
-- **Definición extendida:** Mecanismo para reducir toma de cuentas usando factores de conocimiento, posesión o inherencia; su política varía por operación sensible.
-- **Alias permitidos:** `MFA`, `Autenticación multifactor`.
-- **Alias prohibidos:** `Doble contraseña`.
-- **Dominio dueño:** Seguridad.
-- **Ejemplo correcto:** “Para cambio de cuenta bancaria se requiere **MFA** step-up.”
-- **Anti-ejemplo:** “Enviar OTP opcional ya cumple política **MFA obligatoria**.”
-- **Dominios donde aplica:** Usuarios, Pagos, Soporte.
-
-#### 9) Tokenización de datos sensibles
-- **Definición corta:** Sustitución de datos críticos por tokens no explotables fuera de contexto.
-- **Definición extendida:** Técnica de protección de datos (por ejemplo PAN o documento) para limitar exposición y alcance de cumplimiento.
-- **Alias permitidos:** `Tokenización`, `Tokenización de datos sensibles`.
-- **Alias prohibidos:** `Cifrado reversible simple` (cuando no hay vault/token service).
-- **Dominio dueño:** Seguridad.
-- **Ejemplo correcto:** “El PAN nunca se persiste; solo se almacena su **token**.”
-- **Anti-ejemplo:** “Base64 del número de tarjeta cuenta como **tokenización**.”
-- **Dominios donde aplica:** Pagos, Cumplimiento, Auditoría.
-
-#### 10) Incidente de seguridad
-- **Definición corta:** Evento confirmado que compromete confidencialidad, integridad o disponibilidad.
-- **Definición extendida:** Requiere clasificación de severidad, contención, erradicación, recuperación y post-mortem con acciones preventivas.
-- **Alias permitidos:** `Incidente de seguridad`, `Security Incident`.
-- **Alias prohibidos:** `Bug menor` (si no hay impacto CIA), `Ticket técnico`.
-- **Dominio dueño:** Seguridad.
-- **Ejemplo correcto:** “Se declaró **incidente de seguridad SEV-1** por acceso no autorizado.”
-- **Anti-ejemplo:** “Todo timeout de API es automáticamente incidente de seguridad.”
-- **Dominios donde aplica:** Soporte, Auditoría, Gobernanza.
-
----
-
-### Disputas
-
-#### 11) Disputa
-- **Definición corta:** Proceso formal para resolver desacuerdo transaccional entre partes.
-- **Definición extendida:** Flujo con estados, evidencia, responsables y resolución vinculante (a favor buyer/seller/plataforma), con efectos contables y reputacionales.
-- **Alias permitidos:** `Disputa`.
-- **Alias prohibidos:** `Queja informal`, `Ticket de soporte`.
-- **Dominio dueño:** Disputas.
-- **Ejemplo correcto:** “La **disputa** pasó a etapa de evidencia documental.”
-- **Anti-ejemplo:** “Cualquier conversación de chat abierta es una **disputa**.”
-- **Dominios donde aplica:** Soporte, Pagos, Reputación buyer/seller.
-
-#### 12) Evidencia de disputa
-- **Definición corta:** Conjunto de pruebas verificables usadas para sustentar una resolución.
-- **Definición extendida:** Puede incluir logs firmados, comprobantes, trazas de entrega, comunicaciones y políticas aplicables con sello temporal.
-- **Alias permitidos:** `Evidencia`, `Evidencia de disputa`.
-- **Alias prohibidos:** `Opinión del agente`, `Captura sin contexto`.
-- **Dominio dueño:** Disputas.
-- **Ejemplo correcto:** “La **evidencia** incluye OTP validado y geolocalización del evento.”
-- **Anti-ejemplo:** “Sin trazabilidad, el comentario interno basta como **evidencia**.”
-- **Dominios donde aplica:** Seguridad, Auditoría, Soporte.
-
----
-
-### Geografía y cobertura
-
-#### 13) País operativo
-- **Definición corta:** Jurisdicción donde existe operación habilitada de la plataforma.
-- **Definición extendida:** Define reglas regulatorias, fiscales, medios de pago disponibles y políticas comerciales válidas.
-- **Alias permitidos:** `País operativo`.
-- **Alias prohibidos:** `Región` (si no es jurisdicción país), `Mercado genérico`.
-- **Dominio dueño:** Gobernanza multi-país.
-- **Ejemplo correcto:** “El producto se habilita solo en **países operativos** con KYC activo.”
-- **Anti-ejemplo:** “Un idioma habilitado implica automáticamente **país operativo**.”
-- **Dominios donde aplica:** Cumplimiento, Pagos, Facturación, Soporte.
-
-#### 14) Cobertura geográfica
-- **Definición corta:** Alcance territorial efectivo de servicios y operaciones.
-- **Definición extendida:** Determina disponibilidad por zona/ciudad/área de servicio, con restricciones por logística, riesgo y normativa local.
-- **Alias permitidos:** `Cobertura geográfica`, `Cobertura`.
-- **Alias prohibidos:** `Disponibilidad global` (cuando hay restricciones).
-- **Dominio dueño:** Cobertura.
-- **Ejemplo correcto:** “La **cobertura geográfica** en la ciudad A excluye zona rural.”
-- **Anti-ejemplo:** “Si existe una orden histórica, la **cobertura** es vigente.”
-- **Dominios donde aplica:** Reserva nacional/global, Geo Intelligence Map, Soporte.
-
----
-
-### Soporte
-
-#### 15) SLA de soporte
-- **Definición corta:** Tiempo objetivo comprometido para respuesta y/o resolución de casos.
-- **Definición extendida:** Acuerdo medible por prioridad, canal y tipo de incidente, con relojes de negocio y reglas de pausa/reapertura.
-- **Alias permitidos:** `SLA`, `SLA de soporte`.
-- **Alias prohibidos:** `Tiempo estimado informal`.
-- **Dominio dueño:** Soporte.
-- **Ejemplo correcto:** “El caso P1 incumplió **SLA de primera respuesta** por 12 minutos.”
-- **Anti-ejemplo:** “Resolver rápido cuando se pueda también cuenta como SLA.”
-- **Dominios donde aplica:** Disputas, Seguridad, Operaciones.
-
-#### 16) Escalamiento
-- **Definición corta:** Derivación formal de un caso a un nivel de mayor especialización o autoridad.
-- **Definición extendida:** Puede ser funcional (otro equipo) o jerárquico (aprobación/decisión), preservando contexto, trazabilidad y reloj SLA.
-- **Alias permitidos:** `Escalamiento`, `Escalación`.
-- **Alias prohibidos:** `Reasignación sin contexto`, `Pase manual informal`.
-- **Dominio dueño:** Soporte.
-- **Ejemplo correcto:** “Se ejecutó **escalamiento funcional** a Seguridad con bitácora completa.”
-- **Anti-ejemplo:** “Mover el ticket entre colas sin criterio es **escalamiento**.”
-- **Dominios donde aplica:** Seguridad, Disputas, Gobernanza.
-
----
-
-### Gobernanza multi-país
-
-#### 17) Política global
-- **Definición corta:** Norma base común aplicable a todas las jurisdicciones, salvo excepción explícita.
-- **Definición extendida:** Marco corporativo transversal que define mínimos obligatorios de seguridad, cumplimiento y operación para toda la plataforma.
-- **Alias permitidos:** `Política global`.
-- **Alias prohibidos:** `Regla local`, `Convenio de equipo`.
-- **Dominio dueño:** Gobernanza multi-país.
-- **Ejemplo correcto:** “La retención mínima de logs responde a **política global**.”
-- **Anti-ejemplo:** “Cada país puede ignorar la política global sin excepción documentada.”
-- **Dominios donde aplica:** Seguridad, Auditoría, Cumplimiento, Plataforma.
-
-#### 18) Excepción local documentada
-- **Definición corta:** Desviación aprobada de una política global por requisito legal/regulatorio local.
-- **Definición extendida:** Debe contar con fundamento normativo, fecha de vigencia, responsable y plan de revisión periódica.
-- **Alias permitidos:** `Excepción local documentada`, `Excepción local`.
-- **Alias prohibidos:** `Arreglo temporal permanente`, `Bypass operativo`.
-- **Dominio dueño:** Gobernanza multi-país.
-- **Ejemplo correcto:** “La residencia de datos en país X opera por **excepción local documentada**.”
-- **Anti-ejemplo:** “Se cambió el flujo por presión operativa sin registro de excepción.”
-- **Dominios donde aplica:** Cumplimiento, Seguridad, Datos, Infraestructura.
-
-#### 19) Matriz país-regla
-- **Definición corta:** Inventario oficial de reglas por país, producto y dominio.
-- **Definición extendida:** Tabla de trazabilidad que vincula políticas, obligaciones y capacidades habilitadas por jurisdicción, con versionado.
-- **Alias permitidos:** `Matriz país-regla`.
-- **Alias prohibidos:** `Checklist suelto`, `Wiki no controlada`.
-- **Dominio dueño:** Gobernanza multi-país.
-- **Ejemplo correcto:** “La habilitación de wallets se validó contra la **matriz país-regla**.”
-- **Anti-ejemplo:** “Se lanzó por intuición sin revisar matriz vigente.”
-- **Dominios donde aplica:** Producto, Cumplimiento, Pagos, Soporte.
+Criterio de resolución:
+1. El nombre canónico tiene precedencia en documentación vigente y contratos.
+2. Los nombres legacy se conservan solo como redirección y contexto histórico.
+3. Cualquier término nuevo debe nacer ya en formato canónico.
 
 ---
 
 ## Notas de mantenimiento
 
-- Toda propuesta de término nuevo debe incluir dueño y fecha de alta.
+- Toda propuesta de término nuevo debe incluir owner y fecha de alta.
 - Si un alias prohibido se detecta en documentación vigente, abrir tarea de normalización.
 - Revisar este documento en cada release cross-dominio de alto impacto.
