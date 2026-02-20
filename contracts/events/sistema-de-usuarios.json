@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/events/sistema-de-usuarios.event.v1.json",
+  "title": "Sistema De UsuariosDomainEvent",
+  "description": "Evento canónico del dominio sistema-de-usuarios",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "const": "sistema-de-usuarios.updated"
+    },
+    "eventVersion": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$",
+      "examples": [
+        "v1",
+        "v1.1"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema Unificado Take Rate Engine Revenue Rate Engine V20 API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-unificado-take-rate-engine-revenue-rate-engine-v20`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-unificado-take-rate-engine-revenue-rate-engine-v20/health:
+    get:
+      summary: Healthcheck del dominio sistema-unificado-take-rate-engine-revenue-rate-engine-v20
+      operationId: getSistemaUnificadoTakeRateEngineRevenueRateEngineV20Health
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-unificado-take-rate-engine-revenue-rate-engine-v20/commands:
+    post:
+      summary: Comando genérico del dominio sistema-unificado-take-rate-engine-revenue-rate-engine-v20
+      operationId: postSistemaUnificadoTakeRateEngineRevenueRateEngineV20Command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaUnificadoTakeRateEngineRevenueRateEngineV20Command'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaUnificadoTakeRateEngineRevenueRateEngineV20Command:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-unificado-take-rate-engine-revenue-rate-engine-v20.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object

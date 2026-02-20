@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/events/estructura-v2.event.v1.json",
+  "title": "Estructura V2DomainEvent",
+  "description": "Evento canónico del dominio estructura-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "const": "estructura-v2.updated"
+    },
+    "eventVersion": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$",
+      "examples": [
+        "v1",
+        "v1.1"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

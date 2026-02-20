@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/data/estructura-v2.entity.v1.json",
+  "title": "Estructura V2Entity",
+  "description": "Entidad clave transversal del dominio estructura-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "domain",
+    "version",
+    "createdAt",
+    "updatedAt",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "domain": {
+      "type": "string",
+      "const": "estructura-v2"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "deleted"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

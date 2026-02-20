@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/events/sistema-gobernanza-multi-pais-app-camaleon.event.v1.json",
+  "title": "Sistema Gobernanza Multi Pais App CamaleonDomainEvent",
+  "description": "Evento canónico del dominio sistema-gobernanza-multi-pais-app-camaleon",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "const": "sistema-gobernanza-multi-pais-app-camaleon.updated"
+    },
+    "eventVersion": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$",
+      "examples": [
+        "v1",
+        "v1.1"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

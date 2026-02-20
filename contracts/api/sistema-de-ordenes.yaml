@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema De Ordenes API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-de-ordenes`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-de-ordenes/health:
+    get:
+      summary: Healthcheck del dominio sistema-de-ordenes
+      operationId: getSistemaDeOrdenesHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-de-ordenes/commands:
+    post:
+      summary: Comando genérico del dominio sistema-de-ordenes
+      operationId: postSistemaDeOrdenesCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaDeOrdenesCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaDeOrdenesCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-de-ordenes.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object

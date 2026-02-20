@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema De Integraciones API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-de-integraciones`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-de-integraciones/health:
+    get:
+      summary: Healthcheck del dominio sistema-de-integraciones
+      operationId: getSistemaDeIntegracionesHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-de-integraciones/commands:
+    post:
+      summary: Comando genérico del dominio sistema-de-integraciones
+      operationId: postSistemaDeIntegracionesCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaDeIntegracionesCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaDeIntegracionesCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-de-integraciones.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object

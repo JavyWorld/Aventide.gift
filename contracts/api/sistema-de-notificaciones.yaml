@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema De Notificaciones API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-de-notificaciones`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-de-notificaciones/health:
+    get:
+      summary: Healthcheck del dominio sistema-de-notificaciones
+      operationId: getSistemaDeNotificacionesHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-de-notificaciones/commands:
+    post:
+      summary: Comando genérico del dominio sistema-de-notificaciones
+      operationId: postSistemaDeNotificacionesCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaDeNotificacionesCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaDeNotificacionesCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-de-notificaciones.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object

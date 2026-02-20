@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema Geo Intelligence Map API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-geo-intelligence-map`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-geo-intelligence-map/health:
+    get:
+      summary: Healthcheck del dominio sistema-geo-intelligence-map
+      operationId: getSistemaGeoIntelligenceMapHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-geo-intelligence-map/commands:
+    post:
+      summary: Comando genérico del dominio sistema-geo-intelligence-map
+      operationId: postSistemaGeoIntelligenceMapCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaGeoIntelligenceMapCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaGeoIntelligenceMapCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-geo-intelligence-map.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object
