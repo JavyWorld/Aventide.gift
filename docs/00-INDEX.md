@@ -139,3 +139,8 @@ integraciones/archivos/backup/continuidad
 - Se unificaron separadores múltiples (`--` → `-`).
 - Se normalizó ortografía de slug en casos obvios (`jerarqua` → `jerarquia`, `observalidad` → `observabilidad`).
 - Los `.docx` permanecen intactos como **source-of-truth** inicial.
+
+## 7) Regla de naming para nuevos dominios
+
+- **No crear nuevos dominios bajo naming legacy** (por ejemplo: `sistema-de-*`, `facturacion--documentos`, `disputas`, `waterfall-engine-v10`).
+- Al crear o mover documentación, usar exclusivamente el slug canónico publicado en `docs/02-DOMAINS/README.md`.
