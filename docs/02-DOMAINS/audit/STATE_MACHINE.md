@@ -1,22 +1,33 @@
 # STATE_MACHINE · audit
 
-## Estados detectados/derivados
-- SYSTEM/WORKER (Service_ID): produce eventos obligatorios por write-path.
-- SensitiveReadGuard (VIEW_SENSITIVE siempre genera evento)
-- 4) Flujos end-to-end (happy path + edge cases)
-- Fallo en escritura de auditoría: la acción crítica debe fallar (enforcement) o entrar en modo safe (bloqueo) según severidad. (Inferencia: consistente con “toda acción crítica write debe producir evento”.)
-- Todo evento debe tener actor_id y actor_type (USER|SERVICE).
-- packet_json (gps, time, device, photo_file_id, pin_state, etc.)
+## Estados
 
-## Transiciones y eventos de entrada/salida
+- Definición: Auditoría es un sistema WORM (Write-Once, Read-Many) y append-only que registra, de forma consultable y verificable, quién hizo qué, cuándo, dónde, sobre qué recurso y con qué evidencia, incluyendo snapshotting (“máquina del tiempo”) para que el pasado de una orden no pueda reescribirse.
+
+## Transiciones
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- metadata (ip, ua, geo, request_id),
+- request_id, requester, approver, action, timestamps.
+- Requester + Approver con request_id en auditoría.
 - SYSTEM/WORKER (Service_ID): produce eventos obligatorios por write-path.
 - SensitiveReadGuard (VIEW_SENSITIVE siempre genera evento)
 - Fallo en escritura de auditoría: la acción crítica debe fallar (enforcement) o entrar en modo safe (bloqueo) según severidad. (Inferencia: consistente con “toda acción crítica write debe producir evento”.)
 - Todo evento debe tener actor_id y actor_type (USER|SERVICE).
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Eventos mínimos (audit-aware)
-- Sistema de Auditoría v2.0 (Aventide Black Box) — corregido y unificado
-- Fuente de verdad: “Sistema de Auditoría Unificada (“Aventide Black Box”)”.
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-auditoria-260207_0947.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

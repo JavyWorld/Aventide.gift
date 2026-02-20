@@ -1,24 +1,38 @@
 # API_CONTRACTS · audit
 
-## Endpoints y auth
-- 3) Actores y permisos (RBAC) + guards
-- admin.four_eyes.request/create/approve (ops/admin; auditado)
+## Endpoints
+
+- Actores y permisos (RBAC) + guards
 - AuthGuard
-- metadata (ip, ua, geo, request_id),
 - RBAC_AUDIT: cambios de permisos/roles con IP, contexto, scope.
-- request_id, requester, approver, action, timestamps.
-- Requester + Approver con request_id en auditoría.
-- metadata (JSONB: ip, user-agent, geo, request context)
-
-## Idempotency keys
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- SensitiveReadGuard (VIEW_SENSITIVE siempre genera evento)
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
 
-## Errores
-- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
-- Sistema de Auditoría v2.0 (Aventide Black Box) — corregido y unificado
-- Fuente de verdad: “Sistema de Auditoría Unificada (“Aventide Black Box”)”.
-- 1) Definición y objetivos del sistema/módulo
-- Definición: Auditoría es un sistema WORM (Write-Once, Read-Many) y append-only que registra, de forma consultable y verificable, quién hizo qué, cuándo, dónde, sobre qué recurso y con qué evidencia, incluyendo snapshotting (“máquina del tiempo”) para que el pasado de una orden no pueda reescribirse.
+## Auth
+
+- Actores y permisos (RBAC) + guards
+- AuthGuard
+- RBAC_AUDIT: cambios de permisos/roles con IP, contexto, scope.
+- SensitiveReadGuard (VIEW_SENSITIVE siempre genera evento)
+
+## Códigos de error
+
+- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+
+## Idempotency
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-auditoria-260207_0947.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

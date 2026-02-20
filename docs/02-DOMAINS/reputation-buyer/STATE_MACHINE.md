@@ -1,22 +1,33 @@
 # STATE_MACHINE · reputation-buyer
 
-## Estados detectados/derivados
-- BUYER: crea órdenes, puede reseñar; ve su estado básico (sin revelar score exacto si no se desea).
-- SYSTEM/BOT: calcula score, aplica fricción y límites, genera eventos, mantiene historial.
-- 4) Flujos end-to-end (happy path + edge cases)
-- 4.1 Cálculo continuo por eventos (event-driven)
-- Eventos relevantes actualizan buyer_metrics_rollup (ventanas 30/90/180) y luego recalculan score:
-- “Eventos tardíos” (chargeback meses después): recalcula ventanas afectadas y emite BUYER_TRUST_RECALCULATED con audit trail.
+## Estados
 
-## Transiciones y eventos de entrada/salida
+- BUYER: crea órdenes, puede reseñar; ve su estado básico (sin revelar score exacto si no se desea).
+
+## Transiciones
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- Duplicados: idempotencia por (buyer_id, event_id) en rollups.
+- Eventos y triggers + idempotencia
 - SYSTEM/BOT: calcula score, aplica fricción y límites, genera eventos, mantiene historial.
-- 4.1 Cálculo continuo por eventos (event-driven)
+- Cálculo continuo por eventos (event-driven)
 - Eventos relevantes actualizan buyer_metrics_rollup (ventanas 30/90/180) y luego recalculan score:
 - “Eventos tardíos” (chargeback meses después): recalcula ventanas afectadas y emite BUYER_TRUST_RECALCULATED con audit trail.
-- 7) Eventos y triggers + idempotencia
 - Eventos mínimos (buyer trust)
 - Eventos derivados:
 - eventos de cancelación tardía / PIN withheld, etc.
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-reputacion-buyer-260207_0839.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

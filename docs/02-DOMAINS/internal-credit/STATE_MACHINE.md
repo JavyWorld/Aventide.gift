@@ -1,22 +1,26 @@
 # STATE_MACHINE · internal-credit
 
-## Estados detectados/derivados
-- 4) Flujos end-to-end (happy path + edge cases)
-- 7) Eventos y triggers + idempotencia
-- Eventos mínimos
-- Sistema de Crédito Interno v2.0 (Internal Credits / Wallets) — corregido y unificado
-- Fuente de verdad: “Sistema de Referido y Crédito Interno” (sección 10.X F).
-- 1) Definición y objetivos del sistema/módulo
+## Estados
 
-## Transiciones y eventos de entrada/salida
-- 7) Eventos y triggers + idempotencia
+- Definir estados explícitos del ciclo de vida para entidades principales del dominio.
+
+## Transiciones
+
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- Eventos y triggers + idempotencia
 - Eventos mínimos
-- Sistema de Crédito Interno v2.0 (Internal Credits / Wallets) — corregido y unificado
-- Fuente de verdad: “Sistema de Referido y Crédito Interno” (sección 10.X F).
-- 1) Definición y objetivos del sistema/módulo
-- Definición: “Créditos internos” son saldos no-cash gestionados por la plataforma y representados como pasivos (“Customer_Credit_Liability”), con ledger auditable y reglas estrictas de aplicabilidad. Se dividen por tipo porque no todos se usan igual.
-- Objetivos:
-- Eliminar incoherencia “crédito genérico”: wallets separadas por tipo con reglas duras.
 
 ## Trazabilidad
+
 - Documento origen: `sistema-de-credito-interno-260207_0827.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

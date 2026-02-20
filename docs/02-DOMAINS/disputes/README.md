@@ -1,22 +1,37 @@
 # disputes
 
-## Qué resuelve
-- 1) Definición y objetivos del sistema/módulo
+## Propósito
 
-## Límites del dominio
-- 2) Alcance (incluye / excluye)
-- Incluye
-- Excluye
-- 5) Reglas y políticas (límites, validaciones, caps, invariantes)
+- disputes.evidence.request/read/write
+- disputes.finance.approval.request / disputes.finance.approval.grant
 - Sistema de Disputas v2.0 (Dispute Resolution + Saga determinística) — corregido y unificado
+- Fuente de verdad: “Disputas y Resolución (Saga) — ESPECIFICACIÓN FINAL”.
+- Definición y objetivos del sistema/módulo
+- Documento origen: `disputas-260207_0809.docx`
+- disputes.saga.execute (system)
+- Pagos/Escrow/Provider
+- Título extraído: "Sistema de Disputas v2.0 (Dispute Resolution + Saga determinística) — corregido y unificado".
+
+## Límites
+
+- Reglas fiscales específicas de cada país (se delegan a Facturación & Documentos, invocadas por evento).
+- Alcance (incluye / excluye)
+- Reglas y políticas (límites, validaciones, caps, invariantes)
 
 ## Dependencias
-- Seguridad operativa: workers async, idempotencia por step, dedupe en provider, no doble refund/release.
+
+- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Orquestación Saga: refund, release/clawback, ledger adjustments, docs adjustments, trust/loyalty updates.
 - SYSTEM/BOT: ejecuta saga, integra con provider, ledger, docs, trust, loyalty.
-- Falla provider refund: step queda en RETRY/DLQ; no se duplica por idempotency key.
-- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
-- 8.2 Pagos/Escrow/Provider
 
 ## Trazabilidad
+
 - Documento origen: `disputas-260207_0809.docx`
 - Título extraído: "Sistema de Disputas v2.0 (Dispute Resolution + Saga determinística) — corregido y unificado".
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.

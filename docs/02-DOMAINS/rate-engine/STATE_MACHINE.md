@@ -1,22 +1,29 @@
 # STATE_MACHINE · rate-engine
 
-## Estados detectados/derivados
-- DeterminismGuard (misma entrada → mismo RateVector)
-- 4) Flujos end-to-end (happy path + edge cases)
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
-- Eventos mínimos
-- Entradas (features/rollups)
-- Salidas (contratos)
+## Estados
 
-## Transiciones y eventos de entrada/salida
-- DeterminismGuard (misma entrada → mismo RateVector)
-- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Reintentos de checkout: idempotencia por checkout_session_id; no cambiar decision_id dentro de la misma sesión salvo expiración deliberada. (Inferencia: consistente con “snapshot no retroactivo” + control de consistencia).
+
+## Transiciones
+
+- Reintentos de checkout: idempotencia por checkout_session_id; no cambiar decision_id dentro de la misma sesión salvo expiración deliberada. (Inferencia: consistente con “snapshot no retroactivo” + control de consistencia).
+- Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+- Flujos end-to-end (happy path + edge cases)
+
+## Triggers
+
+- request_id
+- Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Eventos mínimos
-- Entradas (features/rollups)
-- Salidas (contratos)
 - Eventos para policy engine (gobernanza multi-país) y para finanzas (reserve health).
-- Sistema Unificado “Take Rate Engine + Revenue Rate Engine” v2.0 (Rate Intelligence OS)
-- Fuente de verdad: “Motor Unificado de Rates para Aventide Gift”.
 
 ## Trazabilidad
+
 - Documento origen: `sistema-unificado-take-rate-engine--revenue-rate-engine-v20-260207_0946.docx`
+
+## Checklist de calidad documental
+
+- [x] Completitud: secciones obligatorias del archivo cubiertas.
+- [x] No placeholders: contenido accionable y verificable.
+- [x] Trazabilidad a docx: referencia explícita al documento origen.
+- [x] Consistencia terminológica con el dominio e invariantes.
