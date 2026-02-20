@@ -1,0 +1,16 @@
+# INVARIANTS · orders
+
+Reglas no negociables del dominio:
+- Fuente de verdad: documento “Sistema de Órdenes (Aventide Gift)”.Objetivo del rewrite: convertir Órdenes en un motor operativo determinista (state machine + escrow + evidencias + SLA + cancelaciones + timeline), eliminando improvisación y evitando conflictos con Contenido/Capacidad/Logística, Soporte/Disputas, Auditoría y Analítica.
+- Snapshot inmutable de precios/fees/items/dirección/promesa.
+- Reintentos: idempotencia por payment_attempt_id.
+- address_snapshot JSON (inmutable)
+- 6.2 Timeline / Action Stream (append-only)
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- 7.3 Idempotencia
+- endpoints mutables con idempotency_key
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- Auditoría fuerte
+
+## Trazabilidad
+- Documento origen: `sistema-de-ordenes-260207_0037.docx`
