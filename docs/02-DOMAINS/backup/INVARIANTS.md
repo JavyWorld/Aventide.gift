@@ -1,0 +1,16 @@
+# INVARIANTS · backup
+
+Reglas no negociables del dominio:
+- Definición: Sistema que garantiza continuidad operativa, evita pérdida de datos y permite restauración verificable, respetando retenciones legales multi-país y reglas críticas del core: ledger append-only, documentos WORM, snapshots financieros/fiscales, y crypto-shredding sin “revivir” datos destruidos por política.
+- Backups verificables (no “backups que nunca se prueban”).
+- Restauración idempotente del Tier 0 (dinero): sin duplicar cobros/payouts/refunds.
+- Ledger/Finanzas: movimientos, fees, payouts, refunds, disputas, snapshots financieros (inmutables).
+- Observabilidad y Auditoría: logs técnicos, auditoría de acciones, trazas (según retención).
+- BackupAuditor: lee reportes, evidencia de backups, pruebas y DR drills (no restaura).
+- FINANCE/AUDIT/LEGAL: lectura de exports y bóveda fiscal (auditado).
+- backup.run.entity_restore (support/backupoperator, auditado)
+- backup.reports.read (backupauditor)
+- BreakGlassGuard (dual approval + logging inmutable)
+
+## Trazabilidad
+- Documento origen: `sistema-de-copia-de-seguridad-260207_0955.docx`
