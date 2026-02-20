@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/events/sistema-de-observalidad.event.v1.json",
+  "title": "Sistema De ObservalidadDomainEvent",
+  "description": "Evento canónico del dominio sistema-de-observalidad",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "type": "string",
+      "const": "sistema-de-observalidad.updated"
+    },
+    "eventVersion": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$",
+      "examples": [
+        "v1",
+        "v1.1"
+      ]
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

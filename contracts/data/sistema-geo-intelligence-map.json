@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/data/sistema-geo-intelligence-map.entity.v1.json",
+  "title": "Sistema Geo Intelligence MapEntity",
+  "description": "Entidad clave transversal del dominio sistema-geo-intelligence-map",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "domain",
+    "version",
+    "createdAt",
+    "updatedAt",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "domain": {
+      "type": "string",
+      "const": "sistema-geo-intelligence-map"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "deleted"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

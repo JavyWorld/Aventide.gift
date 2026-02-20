@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aventide.gift/contracts/data/sistema-de-barrio.entity.v1.json",
+  "title": "Sistema De BarrioEntity",
+  "description": "Entidad clave transversal del dominio sistema-de-barrio",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "domain",
+    "version",
+    "createdAt",
+    "updatedAt",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "domain": {
+      "type": "string",
+      "const": "sistema-de-barrio"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v(\\d+)(\\.\\d+)?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "deleted"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

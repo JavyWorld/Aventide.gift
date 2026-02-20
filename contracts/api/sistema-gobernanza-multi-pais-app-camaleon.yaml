@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema Gobernanza Multi Pais App Camaleon API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-gobernanza-multi-pais-app-camaleon`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-gobernanza-multi-pais-app-camaleon/health:
+    get:
+      summary: Healthcheck del dominio sistema-gobernanza-multi-pais-app-camaleon
+      operationId: getSistemaGobernanzaMultiPaisAppCamaleonHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-gobernanza-multi-pais-app-camaleon/commands:
+    post:
+      summary: Comando genérico del dominio sistema-gobernanza-multi-pais-app-camaleon
+      operationId: postSistemaGobernanzaMultiPaisAppCamaleonCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaGobernanzaMultiPaisAppCamaleonCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaGobernanzaMultiPaisAppCamaleonCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-gobernanza-multi-pais-app-camaleon.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object

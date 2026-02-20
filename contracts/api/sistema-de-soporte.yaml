@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Sistema De Soporte API Contract
+  version: v1.0.0
+  description: Contrato mínimo del bounded context `sistema-de-soporte`.
+servers:
+  - url: https://api.aventide.gift
+paths:
+  /sistema-de-soporte/health:
+    get:
+      summary: Healthcheck del dominio sistema-de-soporte
+      operationId: getSistemaDeSoporteHealth
+      responses:
+        '200':
+          description: Dominio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  version:
+                    type: string
+                    example: v1.0.0
+  /sistema-de-soporte/commands:
+    post:
+      summary: Comando genérico del dominio sistema-de-soporte
+      operationId: postSistemaDeSoporteCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SistemaDeSoporteCommand'
+      responses:
+        '202':
+          description: Comando aceptado
+components:
+  schemas:
+    SistemaDeSoporteCommand:
+      type: object
+      additionalProperties: false
+      required: [id, type, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: sistema-de-soporte.execute
+        timestamp:
+          type: string
+          format: date-time
+        payload:
+          type: object
