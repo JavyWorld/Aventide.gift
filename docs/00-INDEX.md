@@ -9,6 +9,7 @@
 - [03-COUNTRY-POLICIES](./03-COUNTRY-POLICIES/)
 - [04-CHANGELOG](./04-CHANGELOG.md)
 - [05-DEPLOY-GATES](./05-DEPLOY-GATES.md)
+- [06-MASTER-BLUEPRINT](./06-MASTER-BLUEPRINT.md) · puerta de entrada onboarding IA/humano
 
 ---
 
