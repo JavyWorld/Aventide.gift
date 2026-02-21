@@ -12,8 +12,8 @@ Checklist mínimo obligatorio para aprobar despliegues en producción.
    - Evidencia: pruebas, métricas o validaciones automáticas/manuales.
 2. **Contratos API/Event/Data versionados.**
    - Evidencia: versionado explícito, compatibilidad y consumidores identificados.
-3. **Runbooks actualizados.**
-   - Evidencia: operación, troubleshooting, on-call y escalamiento.
+3. **Runbooks actualizados (incluye `Ownership & Escalation`).**
+   - Evidencia: owner técnico, owner negocio/regulatorio, rotación on-call y matriz SEV0/SEV1/SEV2 con tiempos de respuesta alineados a `docs/02-DOMAINS/_shared/SEVERITY-SLA-HANDOFF-STANDARD.md`.
 4. **Country policies validadas.**
    - Evidencia: validación legal/fiscal/regulatoria por país afectado.
 5. **Riesgo y rollback definidos.**

@@ -44,6 +44,7 @@ La arquitectura documental está organizada por **38 dominios canónicos** y con
 - Auditoría y trazabilidad (`audit`, `observability`).
 - Políticas país (`docs/03-COUNTRY-POLICIES/*`).
 - Seguridad, fraude y permisos (`security`, `governance-cameleon`).
+- Estándar único de severidades, SLA operativos y handoff (`docs/02-DOMAINS/_shared/SEVERITY-SLA-HANDOFF-STANDARD.md`).
 
 ## 4) Límites de bounded contexts
 
