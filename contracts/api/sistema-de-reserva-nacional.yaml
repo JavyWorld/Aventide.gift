@@ -1,58 +1,69 @@
 openapi: 3.0.3
 info:
-  title: Sistema De Reserva Nacional API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `sistema-de-reserva-nacional`.
+  title: Reservas Nacional API
+  version: v2.0.0
+  description: Reservas de inventario por regulación y cupos locales.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /sistema-de-reserva-nacional/health:
-    get:
-      summary: Healthcheck del dominio sistema-de-reserva-nacional
-      operationId: getSistemaDeReservaNacionalHealth
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /sistema-de-reserva-nacional/commands:
+  /reservas-nacionales/holds:
     post:
-      summary: Comando genérico del dominio sistema-de-reserva-nacional
-      operationId: postSistemaDeReservaNacionalCommand
+      summary: Crear hold nacional
+      operationId: createNationalReservationHold
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SistemaDeReservaNacionalCommand'
+            schema: { $ref: '#/components/schemas/CreateNationalHoldRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '201':
+          description: Hold nacional creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NationalHoldResponse' }
+        '422':
+          description: Incumple límites regulatorios locales
+  /reservas-nacionales/holds/{holdId}/authorize:
+    post:
+      summary: Autorizar hold nacional
+      operationId: authorizeNationalReservationHold
+      parameters:
+        - in: path
+          name: holdId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Hold autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NationalHoldResponse' }
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    SistemaDeReservaNacionalCommand:
+    CreateNationalHoldRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [sku, quantity, regionCode, regulationPolicyId]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: sistema-de-reserva-nacional.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        regionCode: { type: string, minLength: 2, maxLength: 8 }
+        regulationPolicyId: { type: string }
+    NationalHoldResponse:
+      type: object
+      additionalProperties: false
+      required: [holdId, regionCode, status, updatedAt]
+      properties:
+        holdId: { type: string, format: uuid }
+        regionCode: { type: string }
+        status: { type: string, enum: [created, authorized, released, settled] }
+        updatedAt: { type: string, format: date-time }

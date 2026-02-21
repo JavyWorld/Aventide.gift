@@ -1,58 +1,89 @@
 openapi: 3.0.3
 info:
-  title: Sistema Unificado Take Rate Engine Revenue Rate Engine V20 API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `sistema-unificado-take-rate-engine-revenue-rate-engine-v20`.
+  title: Rate Engine API
+  version: v2.0.0
+  description: Cálculo de take-rate y revenue-share con trazabilidad por regla aplicada.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /sistema-unificado-take-rate-engine-revenue-rate-engine-v20/health:
-    get:
-      summary: Healthcheck del dominio sistema-unificado-take-rate-engine-revenue-rate-engine-v20
-      operationId: getSistemaUnificadoTakeRateEngineRevenueRateEngineV20Health
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /sistema-unificado-take-rate-engine-revenue-rate-engine-v20/commands:
+  /rate-engine/quotes:
     post:
-      summary: Comando genérico del dominio sistema-unificado-take-rate-engine-revenue-rate-engine-v20
-      operationId: postSistemaUnificadoTakeRateEngineRevenueRateEngineV20Command
+      summary: Cotizar fees por transacción
+      operationId: createRateQuote
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SistemaUnificadoTakeRateEngineRevenueRateEngineV20Command'
+            schema: { $ref: '#/components/schemas/RateQuoteRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '200':
+          description: Quote calculado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RateQuoteResponse' }
+        '422':
+          description: Regla no aplicable para país/vertical
+  /rate-engine/settlements:
+    post:
+      summary: Confirmar settlement con tasa fija
+      operationId: settleRateQuote
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RateSettlementRequest' }
+      responses:
+        '201':
+          description: Settlement confirmado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RateSettlementResponse' }
+        '409':
+          description: quoteId expirado o ya liquidado
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    SistemaUnificadoTakeRateEngineRevenueRateEngineV20Command:
+    RateQuoteRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [transactionId, grossAmount, currency, countryCode, vertical]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: sistema-unificado-take-rate-engine-revenue-rate-engine-v20.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        transactionId: { type: string, format: uuid }
+        grossAmount: { type: integer, minimum: 1 }
+        currency: { type: string, enum: [COP, USD, EUR] }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
+        vertical: { type: string, enum: [rides, food, ecommerce, lodging] }
+    RateQuoteResponse:
+      type: object
+      additionalProperties: false
+      required: [quoteId, netAmount, feeAmount, ruleVersion, expiresAt]
+      properties:
+        quoteId: { type: string, format: uuid }
+        netAmount: { type: integer }
+        feeAmount: { type: integer }
+        ruleVersion: { type: string, example: ruleset-2026-02-15 }
+        expiresAt: { type: string, format: date-time }
+    RateSettlementRequest:
+      type: object
+      additionalProperties: false
+      required: [quoteId, settledAt]
+      properties:
+        quoteId: { type: string, format: uuid }
+        settledAt: { type: string, format: date-time }
+    RateSettlementResponse:
+      type: object
+      additionalProperties: false
+      required: [settlementId, quoteId, status]
+      properties:
+        settlementId: { type: string, format: uuid }
+        quoteId: { type: string, format: uuid }
+        status: { type: string, enum: [settled] }

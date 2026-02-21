@@ -1,50 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aventide.gift/contracts/data/sistema-de-reserva-nacional.entity.v1.json",
-  "title": "Sistema De Reserva NacionalEntity",
-  "description": "Entidad clave transversal del dominio sistema-de-reserva-nacional",
+  "$id": "https://aventide.gift/contracts/data/sistema-de-reserva-nacional.entity.v2.json",
+  "title": "reservas-nacionales Critical Entity",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "id",
     "domain",
-    "version",
+    "majorVersion",
+    "status",
+    "amount",
+    "currency",
     "createdAt",
     "updatedAt",
-    "status"
+    "compatibility"
   ],
   "properties": {
-    "id": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "domain": {
-      "type": "string",
-      "const": "sistema-de-reserva-nacional"
-    },
-    "version": {
-      "type": "string",
-      "pattern": "^v(\\d+)(\\.\\d+)?$"
-    },
-    "status": {
-      "type": "string",
-      "enum": [
-        "active",
-        "inactive",
-        "deleted"
-      ]
-    },
-    "createdAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "updatedAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "attributes": {
+    "id": { "type": "string", "format": "uuid" },
+    "domain": { "type": "string", "const": "sistema-de-reserva-nacional" },
+    "majorVersion": { "type": "integer", "const": 2 },
+    "status": { "type": "string", "enum": ["created", "authorized", "captured", "released", "disputed", "settled"] },
+    "amount": { "type": "integer", "minimum": 0 },
+    "currency": { "type": "string", "enum": ["COP", "USD", "EUR"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "metadata": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": false,
+      "properties": {
+        "externalRef": { "type": "string" },
+        "countryCode": { "type": "string", "minLength": 2, "maxLength": 2 }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currentMajor", "readableMajors", "breakingChangesFrom"],
+      "properties": {
+        "currentMajor": { "type": "integer", "const": 2 },
+        "readableMajors": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "breakingChangesFrom": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Versiones mayores que requieren migración explícita."
+        }
+      }
     }
   }
 }
