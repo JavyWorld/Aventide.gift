@@ -20,6 +20,18 @@
 - event_id único por transición.
 - Suspensión seller lenta → corregido: regla de desindex < 1 minuto con evento y métricas.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo content`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTENT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/content/dominio-content-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTENT-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-contenido-260206_2344.docx`

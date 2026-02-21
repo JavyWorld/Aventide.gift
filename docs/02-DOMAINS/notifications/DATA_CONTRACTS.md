@@ -20,5 +20,17 @@
 - Outbox publish: idempotente por event_id.
 - PAID_IN_ESCROW → Email puede incluir PDF (recibo/factura) generado por motor fiscal, referenciado como attachment (links firmados).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo notifications`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NOTIFICATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/notifications/dominio-notifications-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NOTIFICATION-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-notificaciones-260207_0929.docx`

@@ -2,18 +2,18 @@
 
 ## Endpoints
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Idempotencia
 - Mutaciones con idempotency_key (submit, approve, pause, upload asset).
 - Jerarquía/RBAC: Ops Lead scoped por país para revisión; seller solo lo suyo.
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - QualityGateGuard (capacidad + logística + assets + atributos requeridos + estado de seller)
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Jerarquía/RBAC: Ops Lead scoped por país para revisión; seller solo lo suyo.
 - QualityGateGuard (capacidad + logística + assets + atributos requeridos + estado de seller)
 
@@ -27,6 +27,18 @@
 - Idempotencia
 - Mutaciones con idempotency_key (submit, approve, pause, upload asset).
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo content`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTENT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/content/dominio-content-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTENT-241`
 
 ## Trazabilidad
 

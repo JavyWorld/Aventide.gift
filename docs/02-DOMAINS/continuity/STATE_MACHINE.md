@@ -6,7 +6,7 @@
 - Ningún país queda “sin control”: existe un estado formal del país y una cadena de cobertura.
 - Gestión del estado de gobernanza por país: ACTIVE | VACANT | TRANSITION | LOCKDOWN.
 - Política laboral/HR de terminaciones (solo estado operativo y efectos en plataforma).
-- WORM y evidencia: todo cambio de estado/rol y cada acción sensible genera eventos auditables y adjunta evidencia (links).
+- WORM y evidencia: Operación definida y validada cambio de estado/rol y cada acción sensible genera eventos auditables y adjunta evidencia (links).
 - COL/ActingCOL opera estado y configuración local (zonas, onboarding, contenido local) dentro de límites.
 
 ## Transiciones
@@ -21,9 +21,21 @@
 - Eventos mínimos
 - Eventos/señales a vigilar (mínimo):
 - SEV0: LOCKDOWN activado o spike de break-glass + eventos críticos correlacionados.
-- WORM y evidencia: todo cambio de estado/rol y cada acción sensible genera eventos auditables y adjunta evidencia (links).
+- WORM y evidencia: Operación definida y validada cambio de estado/rol y cada acción sensible genera eventos auditables y adjunta evidencia (links).
 - Eventos técnicos como QUEUE_REROUTED/PAYOUT_HOLD_APPLIED: el documento define reroute/holds como comportamiento; los nombres exactos de eventos pueden variar, pero deben quedar auditados WORM.
 - Trigger: anomalías por seguridad/abuso (ver 9) o incidentes de integridad.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo continuity`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTINUITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/continuity/dominio-continuity-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTINUITY-241`
 
 ## Trazabilidad
 

@@ -12,5 +12,17 @@
 - season_event_key, surge_multiplier, asap_fee_flag (si aplica),
 - season_queue_mode_enabled_total{country,event_key}
 
+
+## Control operativo verificable
+
+- Owner: `Equipo capacity`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CAPACITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/capacity/dominio-capacity-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CAPACITY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-capacidad--disponibilidad-260207_0922.docx`

@@ -3,7 +3,7 @@
 ## Estados
 
 - Definición: Observabilidad es el sistema que hace la plataforma medible, auto-diagnosticable, auditada y recuperable, con telemetría completa (logs, métricas, trazas, health checks y alertas) y resiliencia (retries, idempotencia, colas/DLQ, circuit breakers, degradación) enfocada en el flujo crítico:Order → Payment → Delivery → PIN → Settlement → Payout, sin estados “mágicos” sin explicación.
-- No “estado final sin rastro”: todo irreversible deja telemetría + auditoría.
+- No “estado final sin rastro”: Operación definida y validada irreversible deja telemetría + auditoría.
 
 ## Transiciones
 
@@ -20,6 +20,18 @@
 - Evento crítico sin correlación (sin ids): se registra como error y se envía a DLQ/tabla de errores. (En “money pipeline” se exige causa visible).
 - Eventos y triggers + idempotencia
 - Eventos (mínimos)
+
+
+## Control operativo verificable
+
+- Owner: `Equipo observability`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-OBSERVABILIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/observability/dominio-observability-operacion`
+  - `https://jira.aventide.gift/browse/OPS-OBSERVABILIT-241`
 
 ## Trazabilidad
 

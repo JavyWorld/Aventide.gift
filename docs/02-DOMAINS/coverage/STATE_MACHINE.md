@@ -18,6 +18,18 @@
 - Eventos mínimos
 - Overrides sin trazabilidad → corregido: override solo con permiso, razón, evento y snapshot marcado.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo coverage`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-COVERAGE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/coverage/dominio-coverage-operacion`
+  - `https://jira.aventide.gift/browse/OPS-COVERAGE-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-cobertura-260207_0907.docx`

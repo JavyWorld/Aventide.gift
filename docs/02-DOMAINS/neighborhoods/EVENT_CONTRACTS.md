@@ -12,5 +12,17 @@
 - Inferencia (marcada): la documentación define el concepto y componentes, pero no especifica esquema de tablas, TTLs de invitación, ni campos exactos; se propuso un modelo mínimo compatible con el estilo del proyecto (eventos, privacidad, dependencias, idempotencia) sin inventar funcionalidades públicas no descritas.
 - Sistema Barrio v2.0 (Círculos privados) — corregido y unificado
 
+
+## Control operativo verificable
+
+- Owner: `Equipo neighborhoods`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NEIGHBORHOOD-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/neighborhoods/dominio-neighborhoods-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NEIGHBORHOOD-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-barrio-260207_1012.docx`

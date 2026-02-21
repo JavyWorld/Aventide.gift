@@ -11,12 +11,24 @@
 ## Incidentes, rollback y backfill
 - Sistema de Auditoría v2.0 (Aventide Black Box) — corregido y unificado
 - Fuente de verdad: “Sistema de Auditoría Unificada (“Aventide Black Box”)”.
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
 - Definición: Auditoría es un sistema WORM (Write-Once, Read-Many) y append-only que registra, de forma consultable y verificable, quién hizo qué, cuándo, dónde, sobre qué recurso y con qué evidencia, incluyendo snapshotting (“máquina del tiempo”) para que el pasado de una orden no pueda reescribirse.
 - Objetivos (no negociables):
 - WORM/append-only: un registro de auditoría nunca se edita ni se borra.
 - Snapshotting: demostrar cómo era algo antes de cambios (precio/fotos/listing).
 - Atribución estricta: no existen acciones “anónimas” del sistema: siempre User_ID o Service_ID.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo audit`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-AUDIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/audit/dominio-audit-operacion`
+  - `https://jira.aventide.gift/browse/OPS-AUDIT-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-auditoria-260207_0947.docx`

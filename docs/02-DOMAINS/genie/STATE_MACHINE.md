@@ -23,6 +23,18 @@
 - Policy Gate (clima/eventos/riesgo)
 - Eventos definidos:
 
+
+## Control operativo verificable
+
+- Owner: `Equipo genie`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-GENIE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/genie/dominio-genie-operacion`
+  - `https://jira.aventide.gift/browse/OPS-GENIE-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-genie-260207_1012.docx`

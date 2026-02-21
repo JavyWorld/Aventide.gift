@@ -21,6 +21,18 @@
 - Chat como feature (es Mensajería; aquí solo consume eventos).
 - Emisión desde un evento de dominio (Outbox → Orchestrator)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo notifications`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NOTIFICATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/notifications/dominio-notifications-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NOTIFICATION-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-notificaciones-260207_0929.docx`

@@ -19,6 +19,18 @@
 - Regla exacta de qué eventos alimentan inflow a reserve además del routing por vacancia (p.ej., diferencial cap-earn si Rate Engine lo define).
 - Si quieres, lo siguiente es convertir este sistema a contratos “copy-paste para ingeniería”: endpoints admin exactos, enums purpose_code, eventos definitivos, y un set mínimo de tests UAT (vacancia, disbursement, pérdida y recovery).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo reservas-country`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RESERVASCOUN-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reservas-country/dominio-reservas-country-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RESERVASCOUN-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-reserva-nacional-260207_1031.docx`

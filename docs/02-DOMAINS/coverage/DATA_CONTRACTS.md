@@ -20,5 +20,17 @@
 - order_snapshot: idempotente por (order_id).
 - Sistema de Cobertura v2.0 (Coverage & Logistics Engine) — corregido y unificado
 
+
+## Control operativo verificable
+
+- Owner: `Equipo coverage`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-COVERAGE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/coverage/dominio-coverage-operacion`
+  - `https://jira.aventide.gift/browse/OPS-COVERAGE-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-cobertura-260207_0907.docx`

@@ -12,5 +12,17 @@
 - “Observabilidad (SRE) — Especificación Técnica”
 - “Sistema— Observabilidad + Resiliencia (SRE / ‘Sistema Nervioso Central’)”
 
+
+## Control operativo verificable
+
+- Owner: `Equipo observability`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-OBSERVABILIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/observability/dominio-observability-operacion`
+  - `https://jira.aventide.gift/browse/OPS-OBSERVABILIT-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-observalidad-260207_0755.docx`

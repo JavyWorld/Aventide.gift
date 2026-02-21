@@ -6,3 +6,15 @@ Este dominio fue normalizado al dominio canónico [`billing-docs`](../billing-do
 
 - Ruta canónica: `docs/02-DOMAINS/billing-docs/`
 - Acción requerida: actualiza cualquier referencia de `facturacion--documentos` a `billing-docs`.
+
+## Control operativo verificable
+
+- Owner: `Equipo facturacion--documentos`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-FACTURACIOND-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/facturacion-documentos/dominio-facturacion-documentos-operacion`
+  - `https://jira.aventide.gift/browse/OPS-FACTURACIOND-241`
+

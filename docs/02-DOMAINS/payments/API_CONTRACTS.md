@@ -5,19 +5,19 @@
 - Manejar disputas/chargebacks mediante Saga idempotente sin montos manuales.
 - “No double charge / no double payout”: idempotencia + webhooks + reconciliación.
 - Disputas + chargebacks con Saga idempotente y outcomes predefinidos.
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - StateGuard (compatibilidad con estados de orden: CREATED/PAID_IN_ESCROW/…)
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - StateGuard (compatibilidad con estados de orden: CREATED/PAID_IN_ESCROW/…)
 
 ## Códigos de error
 
-- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+- Catálogo de errores operativo: cada código incluye causa raíz, acción de mitigación y ownership de resolución en guardia.
 
 ## Idempotency
 
@@ -26,6 +26,18 @@
 - Disputas + chargebacks con Saga idempotente y outcomes predefinidos.
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Webhook duplicado: dedupe por provider_event_id / rapyd_transaction_id.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo payments`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-PAYMENTS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/payments/dominio-payments-operacion`
+  - `https://jira.aventide.gift/browse/OPS-PAYMENTS-241`
 
 ## Trazabilidad
 

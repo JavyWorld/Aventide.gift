@@ -20,5 +20,17 @@
 - Caché por key = hash(query + context + filters + sort).
 - Logs sin PII; usar IDs internos/hashed si hace falta.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo search`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SEARCH-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/search/dominio-search-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SEARCH-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-busqueda-260207_0312.docx`

@@ -18,5 +18,17 @@
 - Inbox: idempotente por (event_id, recipient_user_id, template_id) (Suposición: el doc fija dedupe para delivery; se extiende a Inbox para no duplicar mensajes en reintentos, consistente con “Inbox=verdad”).
 - Duplicados por reintentos → corregido: dedupe_key event_id + template_id + recipient_id.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo notifications`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NOTIFICATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/notifications/dominio-notifications-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NOTIFICATION-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-notificaciones-260207_0929.docx`

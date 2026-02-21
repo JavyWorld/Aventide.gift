@@ -20,5 +20,17 @@
 - Saga: idempotency_keys[] por step; reintentos no duplican refunds/releases/credits.
 - Métricas operativas clave
 
+
+## Control operativo verificable
+
+- Owner: `Equipo support`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SUPPORT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/support/dominio-support-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SUPPORT-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-soporte-260207_0731.docx`

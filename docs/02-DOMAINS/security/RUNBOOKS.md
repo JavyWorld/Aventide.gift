@@ -11,12 +11,24 @@
 ## Incidentes, rollback y backfill
 - Sistema de Seguridad v2.0 (Defense in Depth + Money/Delivery Zero-Trust) — corregido y unificado
 - Fuente de verdad: “Sistema de Seguridad (Aventide Gift)”.
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
 - Definición: Sistema transversal que protege CIA + Privacidad (Confidencialidad, Integridad, Disponibilidad) y blinda los flujos críticos de Aventide Gift contra fraude/abuso:Identidad → Checkout → Pago/Escrow → Entrega (Tridente) → Settlement/Payout → Disputas/Auditoría mediante “Defensa en Profundidad” (capas obligatorias A–H).
 - Objetivos:
 - Reducir fraude (compras falsas, no-entregado, colusión buyer/seller, abuso de refunds).
 - Evitar pérdidas por errores técnicos: idempotencia en pagos/webhooks, anti-doble cobro, anti-doble payout.
 - Gobernanza fuerte: RBAC + scopes geográficos + kill switches + auditoría WORM.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo security`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SECURITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/security/dominio-security-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SECURITY-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-seguridad-260207_0756.docx`

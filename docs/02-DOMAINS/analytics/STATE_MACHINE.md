@@ -28,6 +28,18 @@
 - Ingesta de eventos (server-side primero)
 - Reintento de evento: dedupe por event_id (idempotencia).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo analytics`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-ANALYTICS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/analytics/dominio-analytics-operacion`
+  - `https://jira.aventide.gift/browse/OPS-ANALYTICS-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-analitica-260206_2336.docx`

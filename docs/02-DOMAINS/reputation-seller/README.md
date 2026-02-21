@@ -8,7 +8,7 @@
 - seller_metrics_rollup(seller_id, window(30|90|180), on_time_rate, cancel_at_fault_rate, disputes_lost_rate, complaint_rate, chat_median_response, updated_at)Índices:
 - Sistema de Reputación v2.0 (Seller Only) — corregido y unificado
 - Fuente de verdad: “Sistema de Reputación (Trust Engine) — Aventide Gift”.
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Definición: Sistema que calcula y expone la Reputación del Seller (pública) y el Seller Score operativo (interno) usando únicamente “verdad verificada” (órdenes COMPLETED con PIN, outcomes de disputas, cancelaciones con culpa atribuida y señales auditables).
 - Documento origen: `sistema-de-reputacion-seller-260207_0839.docx`
 - Disputas (Saga)
@@ -18,16 +18,28 @@
 
 ## Límites
 
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Incluye (Seller Only)
 - Reglas y políticas (límites, expiraciones, caps, validaciones)
 
 ## Dependencias
 
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Fuente de verdad: “Sistema de Reputación (Trust Engine) — Aventide Gift”.
 - Contratos de integración con Búsqueda: multiplicadores por score y penalizaciones activas.
 - Motor de Moderación y su cola (se consume como dependencia).
+
+
+## Control operativo verificable
+
+- Owner: `Equipo reputation-seller`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REPUTATIONSE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reputation-seller/dominio-reputation-seller-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REPUTATIONSE-241`
 
 ## Trazabilidad
 

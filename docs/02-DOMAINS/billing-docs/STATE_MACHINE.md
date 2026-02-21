@@ -21,6 +21,18 @@
 - Evento PAID_IN_ESCROW llega a Document Service.
 - Payout aún no ejecutado pero orden completada: Statement final se emite con payout_status=PENDING y se emite Payout Statement cuando ocurra PAYOUT_SENT (evento separado). (Consistente con “docs por eventos” y con pipeline de pagos).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo billing-docs`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-BILLINGDOCS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/billing-docs/dominio-billing-docs-operacion`
+  - `https://jira.aventide.gift/browse/OPS-BILLINGDOCS-241`
+
 ## Trazabilidad
 
 - Documento origen: `facturacion--documentos-260207_0805.docx`

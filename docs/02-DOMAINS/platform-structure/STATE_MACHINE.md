@@ -20,6 +20,18 @@
 - POST /api/v1/webhooks/:provider/... verifica firma, persiste payload raw, dedupe, responde 200 rápido, encola job con trace_id/dedupe_key.
 - Tabla idempotency_keys para endpoints críticos; dedupe de webhooks por provider_event_id + firma + ventana.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo platform-structure`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-PLATFORMSTRU-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/platform-structure/dominio-platform-structure-operacion`
+  - `https://jira.aventide.gift/browse/OPS-PLATFORMSTRU-241`
+
 ## Trazabilidad
 
 - Documento origen: `estructura-v2-260207_1049.docx`

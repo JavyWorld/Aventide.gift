@@ -22,13 +22,25 @@
 
 ## Códigos de error
 
-- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+- Catálogo de errores operativo: cada código incluye causa raíz, acción de mitigación y ownership de resolución en guardia.
 
 ## Idempotency
 
 - Eventos y triggers (pipelines) + idempotencia
 - Idempotencia: (country_code, dataset_version, cell_id)
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo geo-intelligence-map`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-GEOINTELLIGE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/geo-intelligence-map/dominio-geo-intelligence-map-operacion`
+  - `https://jira.aventide.gift/browse/OPS-GEOINTELLIGE-241`
 
 ## Trazabilidad
 

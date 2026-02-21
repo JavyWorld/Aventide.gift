@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - Invariante dura:No puede existir DELIVERED_VERIFIED sin SETTLED pasado X minutos sin causa visible (RETRY, DLQ, HOLD, DISPUTE).
 - 5.1 Principios no negociables
 
+
+## Control operativo verificable
+
+- Owner: `Equipo observability`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-OBSERVABILIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/observability/dominio-observability-operacion`
+  - `https://jira.aventide.gift/browse/OPS-OBSERVABILIT-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-observalidad-260207_0755.docx`

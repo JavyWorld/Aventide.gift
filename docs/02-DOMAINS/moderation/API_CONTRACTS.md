@@ -2,18 +2,18 @@
 
 ## Endpoints
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - Price anomaly: bloqueo si desviación absurda (lavado/error).
 - Eventos y triggers + idempotencia
 - Idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Corrección de incoherencia: StrikeLedger es proyección; los cambios reales ocurren vía eventos STRIKE_APPLIED + policy engine que setea flags en user_status y seller_operational_flags.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 
 ## Códigos de error
@@ -25,6 +25,18 @@
 - Eventos y triggers + idempotencia
 - Idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo moderation`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-MODERATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/moderation/dominio-moderation-operacion`
+  - `https://jira.aventide.gift/browse/OPS-MODERATION-241`
 
 ## Trazabilidad
 

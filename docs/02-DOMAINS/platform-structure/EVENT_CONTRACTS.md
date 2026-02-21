@@ -12,5 +12,17 @@
 - Estructura v2.0 (Estructura del Proyecto / Plataforma Aventide Gift)
 - Fuente de verdad: “estructura-260207_1042.docx”.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo platform-structure`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-PLATFORMSTRU-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/platform-structure/dominio-platform-structure-operacion`
+  - `https://jira.aventide.gift/browse/OPS-PLATFORMSTRU-241`
+
 ## Trazabilidad
 - Documento origen: `estructura-v2-260207_1049.docx`

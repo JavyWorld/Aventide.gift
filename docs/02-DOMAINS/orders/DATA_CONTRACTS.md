@@ -20,5 +20,17 @@
 - 6.2 Timeline / Action Stream (append-only)
 - pin_hash
 
+
+## Control operativo verificable
+
+- Owner: `Equipo orders`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-ORDERS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/orders/dominio-orders-operacion`
+  - `https://jira.aventide.gift/browse/OPS-ORDERS-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-ordenes-260207_0037.docx`

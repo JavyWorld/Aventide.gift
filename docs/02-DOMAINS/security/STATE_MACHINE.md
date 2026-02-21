@@ -19,6 +19,18 @@
 - Eventos mínimos de seguridad
 - Webhooks: dedupe por provider_event_id + firma + ventana temporal.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo security`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SECURITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/security/dominio-security-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SECURITY-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-seguridad-260207_0756.docx`

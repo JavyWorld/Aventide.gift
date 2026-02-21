@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - Si se habilita apilado por policy, debe existir regla determinística: ONLY_ONE_SELLER_COUPON + orden de preferencia (p. ej. mayor descuento efectivo) y debe quedar snapshotteado.
 - unique(checkout_id, coupon_id) para idempotencia
 
+
+## Control operativo verificable
+
+- Owner: `Equipo coupons`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-COUPONS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/coupons/dominio-coupons-operacion`
+  - `https://jira.aventide.gift/browse/OPS-COUPONS-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-cupones-260207_0826.docx`

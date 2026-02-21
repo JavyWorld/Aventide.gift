@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - GIFT_HISTORY_ADDED idempotente por (buyer_id, order_id) (si 1 recipient por orden).
 - MEMORY_SIGNAL_INGESTED idempotente por (source_event_id, entity_type, entity_id) (Suposición: el doc no fija claves; necesario para reintentos).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo memory`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-MEMORY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/memory/dominio-memory-operacion`
+  - `https://jira.aventide.gift/browse/OPS-MEMORY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-memory-260207_1012.docx`

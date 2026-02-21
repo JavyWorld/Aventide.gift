@@ -23,6 +23,18 @@
 - Eventos analíticos (existentes en docs)
 - Consumir eventos de REFUND_EXECUTED, CHARGEBACK_RECEIVED, DISPUTE_RESOLVED para reversión.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo referrals`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REFERRALS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/referrals/dominio-referrals-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REFERRALS-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-referido-260207_0826.docx`

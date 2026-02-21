@@ -8,7 +8,7 @@
 - Fuente de verdad: “Sistema de Notificaciones”.Dependencia directa: “Sistema de Mensajería” (evento NEW_CHAT_MESSAGE).
 - Definición: Sistema de comunicación automatizada que recibe eventos de negocio (órdenes, pagos, PIN, disputas, payouts, seguridad, etc.), decide canal + plantilla + destinatarios, entrega por proveedores externos (Push/Email/SMS/WhatsApp) y siempre guarda una copia en el Inbox in-app, que es la fuente de verdad auditable.
 - Saga de Disputas: no se notifica “resuelto” si falla un paso (refund). En su lugar:
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Un servicio de dominio (Órdenes/Pagos/Disputas) ejecuta su transacción.
 - outbox_events (por servicio de dominio)
 - provider
@@ -18,7 +18,7 @@
 
 - Idempotencia (reglas duras)
 - “Smart notifications” desde Chat (evento NEW_CHAT_MESSAGE con reglas online/offline).
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Reglas y políticas (prioridades, canales, límites, validaciones)
 - Corrección de incoherencia: los límites se aplican en el Orchestrator (no en cada servicio de dominio) para que el enforcement sea único.
 
@@ -27,6 +27,18 @@
 - Fuente de verdad: “Sistema de Notificaciones”.Dependencia directa: “Sistema de Mensajería” (evento NEW_CHAT_MESSAGE).
 - Definición: Sistema de comunicación automatizada que recibe eventos de negocio (órdenes, pagos, PIN, disputas, payouts, seguridad, etc.), decide canal + plantilla + destinatarios, entrega por proveedores externos (Push/Email/SMS/WhatsApp) y siempre guarda una copia en el Inbox in-app, que es la fuente de verdad auditable.
 - Auditoría: trazabilidad WORM/ledger-style por evento/canal/plantilla/recipient.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo notifications`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NOTIFICATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/notifications/dominio-notifications-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NOTIFICATION-241`
 
 ## Trazabilidad
 

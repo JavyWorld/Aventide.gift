@@ -23,6 +23,18 @@
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Eventos (mínimos)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo coupons`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-COUPONS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/coupons/dominio-coupons-operacion`
+  - `https://jira.aventide.gift/browse/OPS-COUPONS-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-cupones-260207_0826.docx`

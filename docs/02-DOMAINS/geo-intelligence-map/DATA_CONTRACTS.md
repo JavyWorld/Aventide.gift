@@ -5,7 +5,7 @@
 - Export (snapshot PNG/PDF + CSV agregados) debe quedar auditado como acceso/acción sensible (no exportar PII).
 - Sistema: Geo Intelligence Map (Geofencing + Heatmaps + Penetración Poblacional) v2.0
 - Base en documentación: el proyecto ya define explícitamente un “Mapa global/territorial” con capas, heatmaps, PostGIS + H3/tiles, RBAC por country scope, y anti-PII, y su UX (macro→micro).
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
 - Definición: Geo Intelligence Map es un sistema independiente del Panel (Regional OS + SuperAdmin) que ofrece:
 - Visualización de territorio (país/hub/zona) basado en polígonos PostGIS.
 - Heatmaps/KPIs por densidad regional (órdenes, GMV, problemas, capacidad, etc.) renderizados por grid H3/tiles (no por puntos individuales).
@@ -18,7 +18,19 @@
 - Cambios de zone.update_status, creación/edición de exclusion_zones, y overrides de datasets/versiones ⇒ auditoría append-only (WORM).
 - Sistema: Geo Intelligence Map (Geofencing + Heatmaps + Penetración Poblacional) v2.0
 - Base en documentación: el proyecto ya define explícitamente un “Mapa global/territorial” con capas, heatmaps, PostGIS + H3/tiles, RBAC por country scope, y anti-PII, y su UX (macro→micro).
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
+
+
+## Control operativo verificable
+
+- Owner: `Equipo geo-intelligence-map`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-GEOINTELLIGE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/geo-intelligence-map/dominio-geo-intelligence-map-operacion`
+  - `https://jira.aventide.gift/browse/OPS-GEOINTELLIGE-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-geo-intelligence-map-260207_1103.docx`

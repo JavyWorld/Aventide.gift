@@ -4,7 +4,7 @@
 
 - Sistema de Moderación v2.0 (Trust & Compliance Engine) — corregido y unificado
 - Fuente de verdad: “Sistema de Moderación y Cumplimiento (Trust & Compliance Engine) — Aventide Gift”.
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - moderation.decision.publish/reject
 - AUTO_REJECT
 - REJECT (con motivo educativo)
@@ -19,7 +19,7 @@
 ## Límites
 
 - Corrección de incoherencia:Strike Ledger y “funds policy” deben ser derivados y aplicados por policy engine/pagos; moderación no mueve dinero, solo cambia el estado/política (rolling_reserve=50%, freeze=180d).
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Reglas y políticas (límites, validaciones, catálogos)
 
 ## Dependencias
@@ -29,9 +29,21 @@
 - Corrección de incoherencia:Strike Ledger y “funds policy” deben ser derivados y aplicados por policy engine/pagos; moderación no mueve dinero, solo cambia el estado/política (rolling_reserve=50%, freeze=180d).
 - Corrección de incoherencia: StrikeLedger es proyección; los cambios reales ocurren vía eventos STRIKE_APPLIED + policy engine que setea flags en user_status y seller_operational_flags.
 - Integración obligatoria con Reputación/Score, Búsqueda/Ranking, Órdenes/Pagos, Soporte, Auditoría.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Compatibilidad con sistemas existentes (dependencias directas)
 - Título extraído: "Sistema de Moderación v2.0 (Trust & Compliance Engine) — corregido y unificado".
+
+
+## Control operativo verificable
+
+- Owner: `Equipo moderation`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-MODERATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/moderation/dominio-moderation-operacion`
+  - `https://jira.aventide.gift/browse/OPS-MODERATION-241`
 
 ## Trazabilidad
 

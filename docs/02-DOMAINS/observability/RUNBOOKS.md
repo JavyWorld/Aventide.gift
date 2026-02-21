@@ -14,9 +14,21 @@
 - Fuentes de verdad:
 - “Observabilidad (SRE) — Especificación Técnica”
 - “Sistema— Observabilidad + Resiliencia (SRE / ‘Sistema Nervioso Central’)”
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
 - Definición: Observabilidad es el sistema que hace la plataforma medible, auto-diagnosticable, auditada y recuperable, con telemetría completa (logs, métricas, trazas, health checks y alertas) y resiliencia (retries, idempotencia, colas/DLQ, circuit breakers, degradación) enfocada en el flujo crítico:Order → Payment → Delivery → PIN → Settlement → Payout, sin estados “mágicos” sin explicación.
 - Objetivos:
+
+
+## Control operativo verificable
+
+- Owner: `Equipo observability`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-OBSERVABILIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/observability/dominio-observability-operacion`
+  - `https://jira.aventide.gift/browse/OPS-OBSERVABILIT-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-observalidad-260207_0755.docx`

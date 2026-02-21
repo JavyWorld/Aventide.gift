@@ -21,6 +21,18 @@
 - Eventos de autorización (dominio Jerarquía)
 - inicio/fin de break-glassdebe producir un evento de auditoría con who/when/what/why.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo hierarchy`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-HIERARCHY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/hierarchy/dominio-hierarchy-operacion`
+  - `https://jira.aventide.gift/browse/OPS-HIERARCHY-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-jerarqua-260206_2015.docx`

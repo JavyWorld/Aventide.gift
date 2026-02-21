@@ -10,7 +10,19 @@
 - Fuentes de verdad:
 - “resumen-260207_1014” (Continuidad, vacancia, routing a reserva, break-glass, four-eyes, monitoreo).
 - “waterfall-engine-v10-260207_0941” (Waterfall de pérdidas, layers, loss_case, recovery al COL, guardrails, ledger doble-entry).
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
+
+
+## Control operativo verificable
+
+- Owner: `Equipo reservas-country`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RESERVASCOUN-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reservas-country/dominio-reservas-country-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RESERVASCOUN-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-reserva-nacional-260207_1031.docx`

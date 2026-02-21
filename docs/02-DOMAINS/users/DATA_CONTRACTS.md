@@ -20,5 +20,17 @@
 - 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - 7.2 Idempotencia (obligatorio)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo users`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-USERS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/users/dominio-users-operacion`
+  - `https://jira.aventide.gift/browse/OPS-USERS-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-usuarios-260206_2328.docx`

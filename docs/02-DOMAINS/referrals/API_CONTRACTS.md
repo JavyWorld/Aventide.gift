@@ -2,7 +2,7 @@
 
 ## Endpoints
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - IdempotencyGuard (no duplica atribución ni grants)
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
@@ -11,11 +11,11 @@
 - FIRST_ORDER_EVAL: idempotente por (referred_id, first_order_id)
 - REWARD_GRANT: idempotente por (attribution_id, reward_type, policy_version)
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - IdempotencyGuard (no duplica atribución ni grants)
 
@@ -32,6 +32,18 @@
 - FIRST_ORDER_EVAL: idempotente por (referred_id, first_order_id)
 - REWARD_GRANT: idempotente por (attribution_id, reward_type, policy_version)
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo referrals`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REFERRALS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/referrals/dominio-referrals-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REFERRALS-241`
 
 ## Trazabilidad
 
