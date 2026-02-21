@@ -13,6 +13,20 @@
 
 ---
 
+
+## Estado de ejecución del roadmap (dirección)
+
+Estados permitidos para seguimiento: `pendiente` · `en curso` · `cerrado`.
+
+| Iniciativa estratégica | Estado | Referencia |
+|---|---|---|
+| Criterio formal para retiro de `/Sistemas` | `en curso` | [ADR-STR-001](./01-ADR/ADR-STR-001-criterio-retiro-sistemas.md) |
+| Versionado semántico de contratos cross-domain | `pendiente` | [ADR-STR-002](./01-ADR/ADR-STR-002-versionado-semantico-contratos-cross-domain.md) |
+| Política de expansión multi-país | `pendiente` | [ADR-STR-003](./01-ADR/ADR-STR-003-politica-expansion-multi-pais.md) |
+| Estándar de pruebas de caos y DR money-critical | `pendiente` | [ADR-STR-004](./01-ADR/ADR-STR-004-estandar-caos-dr-money-critical.md) |
+
+---
+
 ## 1) Inventario completo (38 fuentes)
 
 ## 1.1) Política de transición de fuentes
