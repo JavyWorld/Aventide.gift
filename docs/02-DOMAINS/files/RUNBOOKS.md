@@ -32,3 +32,20 @@
 
 ## Trazabilidad
 - Documento origen: `sistema-de-archivos-260207_0840.docx`
+
+## Ownership & Escalation
+
+- **Owner técnico:** `Equipo files`
+- **Owner negocio/regulatorio:** `Product + Compliance (files)`
+- **Rotación on-call:** `24x7 · primaria semanal · secundaria de respaldo`
+
+### Matriz de severidad y tiempos de respuesta
+
+| Severidad | Definición operativa | Ack inicial | Mitigación/contención | Actualizaciones |
+| --- | --- | --- | --- | --- |
+| **SEV0** | Caída total o riesgo crítico legal/financiero. | ≤ 5 min (24x7) | ≤ 30 min | Cada 15 min |
+| **SEV1** | Degradación severa con impacto alto en transacciones/SLA. | ≤ 10 min (24x7) | ≤ 60 min | Cada 30 min |
+| **SEV2** | Impacto parcial con workaround disponible. | ≤ 30 min (horario operativo + guardia) | ≤ 4 h | Cada 2 h |
+
+> Este dominio adopta el estándar transversal de severidades, SLA operativos y handoff en `docs/02-DOMAINS/_shared/SEVERITY-SLA-HANDOFF-STANDARD.md`.
+
