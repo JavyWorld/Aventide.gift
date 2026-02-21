@@ -4,7 +4,7 @@ Checklist mínimo obligatorio para aprobar despliegues en producción.
 
 ## Regla operativa obligatoria
 
-> **Ningún cambio de dominio se acepta sin actualizar `docs/04-CHANGELOG.md` y este documento de gates.**
+> **Ningún cambio de dominio se acepta sin actualizar `docs/04-CHANGELOG.md` y registrar un gate por release en `docs/releases/`.**
 
 ## Gates mínimos
 
@@ -23,6 +23,15 @@ Checklist mínimo obligatorio para aprobar despliegues en producción.
 
 ## Plantilla de aprobación por release
 
+Cada release debe tener su propio archivo en `docs/releases/` con formato `YYYY-MM-DD-release-id.md`.
+
+Además, cada gate de release debe incluir **enlaces concretos** (URL) a evidencia de:
+
+- dashboard/observabilidad del cambio,
+- incident drill o simulacro ejecutado,
+- pruebas E2E relevantes,
+- aprobaciones legales/regulatorias por país.
+
 ```md
 ### Release: <id>
 - [ ] Gate 1: Invariantes no violados.
@@ -31,8 +40,13 @@ Checklist mínimo obligatorio para aprobar despliegues en producción.
 - [ ] Gate 4: Country policies validadas.
 - [ ] Gate 5: Riesgo y rollback definidos.
 - [ ] Gate 6: Auditoría/eventos críticos verificados.
+- **Dashboard:** [enlace](https://...)
+- **Incident Drill:** [enlace](https://...)
+- **Pruebas E2E:** [enlace](https://...)
+- **Aprobación legal/regulatoria:** [enlace](https://...)
 - **Aprobador técnico:** <nombre>
 - **Aprobador de negocio/regulatorio:** <nombre>
+- **Estado de aprobación:** <aprobado|pendiente|rechazado>
 - **Fecha/hora:** <UTC>
 - **Notas:** <observaciones>
 ```
