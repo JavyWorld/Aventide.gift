@@ -1,58 +1,72 @@
 openapi: 3.0.3
 info:
-  title: Facturacion Documentos API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `facturacion-documentos`.
+  title: Billing Docs API
+  version: v2.0.0
+  description: Emisión fiscal y conciliación documental de operaciones críticas.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /facturacion-documentos/health:
-    get:
-      summary: Healthcheck del dominio facturacion-documentos
-      operationId: getFacturacionDocumentosHealth
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /facturacion-documentos/commands:
+  /billing-docs/invoices:
     post:
-      summary: Comando genérico del dominio facturacion-documentos
-      operationId: postFacturacionDocumentosCommand
+      summary: Emitir documento fiscal
+      operationId: issueInvoice
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/FacturacionDocumentosCommand'
+            schema: { $ref: '#/components/schemas/IssueInvoiceRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '201':
+          description: Documento emitido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvoiceResponse' }
+        '422':
+          description: Rechazo tributario
+  /billing-docs/invoices/{invoiceId}/settle:
+    post:
+      summary: Marcar documento como liquidado
+      operationId: settleInvoice
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Documento liquidado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvoiceResponse' }
+        '409':
+          description: Documento ya liquidado o anulado
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    FacturacionDocumentosCommand:
+    IssueInvoiceRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [orderId, customerTaxId, subtotal, taxAmount, total]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: facturacion-documentos.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        orderId: { type: string, format: uuid }
+        customerTaxId: { type: string, minLength: 5 }
+        subtotal: { type: integer, minimum: 1 }
+        taxAmount: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 1 }
+    InvoiceResponse:
+      type: object
+      additionalProperties: false
+      required: [invoiceId, fiscalNumber, status, issuedAt]
+      properties:
+        invoiceId: { type: string, format: uuid }
+        fiscalNumber: { type: string }
+        status: { type: string, enum: [created, authorized, disputed, settled] }
+        issuedAt: { type: string, format: date-time }

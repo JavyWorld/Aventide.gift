@@ -1,58 +1,82 @@
 openapi: 3.0.3
 info:
-  title: Disputas API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `disputas`.
+  title: Disputes API
+  version: v2.0.0
+  description: Gestión de disputas de pagos y evidencia regulatoria.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /disputas/health:
-    get:
-      summary: Healthcheck del dominio disputas
-      operationId: getDisputasHealth
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /disputas/commands:
+  /disputes/cases:
     post:
-      summary: Comando genérico del dominio disputas
-      operationId: postDisputasCommand
+      summary: Crear disputa
+      operationId: createDisputeCase
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/DisputasCommand'
+            schema: { $ref: '#/components/schemas/CreateDisputeRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '201':
+          description: Disputa creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeResponse' }
+        '404':
+          description: Pago no encontrado
+  /disputes/cases/{disputeId}/settle:
+    post:
+      summary: Resolver disputa
+      operationId: settleDisputeCase
+      parameters:
+        - in: path
+          name: disputeId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettleDisputeRequest' }
+      responses:
+        '200':
+          description: Disputa resuelta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DisputeResponse' }
+        '409':
+          description: Disputa ya cerrada
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    DisputasCommand:
+    CreateDisputeRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [paymentId, reasonCode, openedBy]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: disputas.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        paymentId: { type: string, format: uuid }
+        reasonCode: { type: string, enum: [fraud, product_not_received, duplicate_charge] }
+        openedBy: { type: string, enum: [customer, issuer, internal_ops] }
+    SettleDisputeRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, settledBy]
+      properties:
+        decision: { type: string, enum: [merchant_won, customer_won, partial_refund] }
+        settledBy: { type: string, minLength: 3 }
+    DisputeResponse:
+      type: object
+      additionalProperties: false
+      required: [disputeId, paymentId, status, updatedAt]
+      properties:
+        disputeId: { type: string, format: uuid }
+        paymentId: { type: string, format: uuid }
+        status: { type: string, enum: [created, disputed, settled] }
+        updatedAt: { type: string, format: date-time }

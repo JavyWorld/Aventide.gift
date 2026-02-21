@@ -1,41 +1,89 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aventide.gift/contracts/events/sistema-de-reserva-global.event.v1.json",
-  "title": "Sistema De Reserva GlobalDomainEvent",
-  "description": "Evento canónico del dominio sistema-de-reserva-global",
+  "$id": "https://aventide.gift/contracts/events/sistema-de-reserva-global.event.v2.json",
+  "title": "reservas-global Domain Event",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "eventId",
-    "eventType",
-    "eventVersion",
-    "occurredAt",
-    "data"
-  ],
+  "required": ["eventId", "eventType", "eventVersion", "occurredAt", "aggregateId", "data"],
   "properties": {
-    "eventId": {
-      "type": "string",
-      "format": "uuid"
-    },
+    "eventId": { "type": "string", "format": "uuid" },
     "eventType": {
       "type": "string",
-      "const": "sistema-de-reserva-global.updated"
-    },
-    "eventVersion": {
-      "type": "string",
-      "pattern": "^v(\\d+)(\\.\\d+)?$",
-      "examples": [
-        "v1",
-        "v1.1"
+      "enum": [
+        "reservas-global.created",
+        "reservas-global.authorized",
+        "reservas-global.captured",
+        "reservas-global.released",
+        "reservas-global.disputed",
+        "reservas-global.settled"
       ]
     },
-    "occurredAt": {
-      "type": "string",
-      "format": "date-time"
-    },
+    "eventVersion": { "type": "string", "const": "v2" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "aggregateId": { "type": "string", "format": "uuid" },
     "data": {
-      "type": "object",
-      "additionalProperties": true
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "amount", "currency"],
+          "properties": {
+            "state": { "const": "created" },
+            "amount": { "type": "integer", "minimum": 1 },
+            "currency": { "type": "string", "enum": ["COP", "USD", "EUR"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "authorizedBy", "authCode"],
+          "properties": {
+            "state": { "const": "authorized" },
+            "authorizedBy": { "type": "string" },
+            "authCode": { "type": "string", "minLength": 6 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "capturedAmount", "capturedAt"],
+          "properties": {
+            "state": { "const": "captured" },
+            "capturedAmount": { "type": "integer", "minimum": 1 },
+            "capturedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "releasedAmount", "reason"],
+          "properties": {
+            "state": { "const": "released" },
+            "releasedAmount": { "type": "integer", "minimum": 0 },
+            "reason": { "type": "string", "minLength": 3 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "disputeId", "reasonCode"],
+          "properties": {
+            "state": { "const": "disputed" },
+            "disputeId": { "type": "string", "format": "uuid" },
+            "reasonCode": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "settlementId", "settledAt"],
+          "properties": {
+            "state": { "const": "settled" },
+            "settlementId": { "type": "string", "format": "uuid" },
+            "settledAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
     }
   }
 }

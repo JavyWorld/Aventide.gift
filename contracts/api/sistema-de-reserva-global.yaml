@@ -1,58 +1,69 @@
 openapi: 3.0.3
 info:
-  title: Sistema De Reserva Global API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `sistema-de-reserva-global`.
+  title: Reservas Global API
+  version: v2.0.0
+  description: Bloqueo y liberación de inventario global para evitar sobreventa.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /sistema-de-reserva-global/health:
-    get:
-      summary: Healthcheck del dominio sistema-de-reserva-global
-      operationId: getSistemaDeReservaGlobalHealth
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /sistema-de-reserva-global/commands:
+  /reservas-global/holds:
     post:
-      summary: Comando genérico del dominio sistema-de-reserva-global
-      operationId: postSistemaDeReservaGlobalCommand
+      summary: Crear hold global de inventario
+      operationId: createGlobalReservationHold
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/SistemaDeReservaGlobalCommand'
+            schema: { $ref: '#/components/schemas/CreateReservationHoldRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '201':
+          description: Hold creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservationHoldResponse' }
+        '409':
+          description: Inventario no disponible
+  /reservas-global/holds/{holdId}/release:
+    post:
+      summary: Liberar hold global
+      operationId: releaseGlobalReservationHold
+      parameters:
+        - in: path
+          name: holdId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Hold liberado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservationHoldResponse' }
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    SistemaDeReservaGlobalCommand:
+    CreateReservationHoldRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [sku, quantity, expiresAt, channel]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: sistema-de-reserva-global.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        expiresAt: { type: string, format: date-time }
+        channel: { type: string, enum: [web, app, partner_api] }
+    ReservationHoldResponse:
+      type: object
+      additionalProperties: false
+      required: [holdId, sku, quantity, status]
+      properties:
+        holdId: { type: string, format: uuid }
+        sku: { type: string }
+        quantity: { type: integer }
+        status: { type: string, enum: [created, authorized, released, settled] }

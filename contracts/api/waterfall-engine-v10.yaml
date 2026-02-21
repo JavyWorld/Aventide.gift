@@ -1,58 +1,80 @@
 openapi: 3.0.3
 info:
-  title: Waterfall Engine V10 API Contract
-  version: v1.0.0
-  description: Contrato mínimo del bounded context `waterfall-engine-v10`.
+  title: Waterfall Engine API
+  version: v2.0.0
+  description: Orquestación de distribución de fondos por prioridad de reglas.
 servers:
   - url: https://api.aventide.gift
 paths:
-  /waterfall-engine-v10/health:
-    get:
-      summary: Healthcheck del dominio waterfall-engine-v10
-      operationId: getWaterfallEngineV10Health
-      responses:
-        '200':
-          description: Dominio operativo
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, version]
-                properties:
-                  status:
-                    type: string
-                    enum: [ok]
-                  version:
-                    type: string
-                    example: v1.0.0
-  /waterfall-engine-v10/commands:
+  /waterfall/allocations:
     post:
-      summary: Comando genérico del dominio waterfall-engine-v10
-      operationId: postWaterfallEngineV10Command
+      summary: Ejecutar waterfall de asignación
+      operationId: createWaterfallAllocation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/WaterfallEngineV10Command'
+            schema: { $ref: '#/components/schemas/WaterfallAllocationRequest' }
       responses:
-        '202':
-          description: Comando aceptado
+        '201':
+          description: Asignación creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WaterfallAllocationResponse' }
+        '422':
+          description: Regla de cascade inválida
+  /waterfall/allocations/{allocationId}/release:
+    post:
+      summary: Liberar fondos retenidos
+      operationId: releaseWaterfallAllocation
+      parameters:
+        - in: path
+          name: allocationId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Fondos liberados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WaterfallAllocationResponse' }
+        '409':
+          description: Estado no liberable
 components:
+  parameters:
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 16 }
   schemas:
-    WaterfallEngineV10Command:
+    WaterfallAllocationRequest:
       type: object
       additionalProperties: false
-      required: [id, type, timestamp]
+      required: [settlementId, grossAmount, currency, legs]
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          example: waterfall-engine-v10.execute
-        timestamp:
-          type: string
-          format: date-time
-        payload:
-          type: object
+        settlementId: { type: string, format: uuid }
+        grossAmount: { type: integer, minimum: 1 }
+        currency: { type: string, enum: [COP, USD] }
+        legs:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [beneficiaryId, priority, percentage]
+            properties:
+              beneficiaryId: { type: string, format: uuid }
+              priority: { type: integer, minimum: 1 }
+              percentage: { type: number, minimum: 0, maximum: 100 }
+    WaterfallAllocationResponse:
+      type: object
+      additionalProperties: false
+      required: [allocationId, status, releasedAmount]
+      properties:
+        allocationId: { type: string, format: uuid }
+        status: { type: string, enum: [created, authorized, released, settled] }
+        releasedAmount: { type: integer, minimum: 0 }
