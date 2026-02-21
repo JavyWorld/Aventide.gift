@@ -3,18 +3,18 @@
 ## Endpoints
 
 - control estricto RBAC+ABAC (“need-to-know”),
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - Sistema valida RBAC+ABAC + data_class.
 - si hay error: no se edita; se emite Nota de Crédito + nueva factura.
 - Eventos y triggers + idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 
 ## Auth
 
 - control estricto RBAC+ABAC (“need-to-know”),
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - Sistema valida RBAC+ABAC + data_class.
 
@@ -27,6 +27,18 @@
 
 - Eventos y triggers + idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo files`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-FILES-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/files/dominio-files-operacion`
+  - `https://jira.aventide.gift/browse/OPS-FILES-241`
 
 ## Trazabilidad
 

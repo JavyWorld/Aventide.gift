@@ -1,14 +1,14 @@
 # DATA_CONTRACTS · rate-engine
 
 ## Entidades y campos
-- Este motor sustituye la lógica dispersa del “Take-Rate Engine OS” y del “Revenue Rate Engine” por un solo cerebro que produce un RateVector y lo “compila” a un breakdown financiero y a un blueprint de ledger/settlement, todo con snapshot por orden.
+- Este motor sustituye la lógica dispersa del “Take-Rate Engine OS” y del “Revenue Rate Engine” por un solo cerebro que produce un RateVector y lo “compila” a un breakdown financiero y a un blueprint de ledger/settlement, Operación definida y validada con snapshot por orden.
 - Reproducibilidad contable: cada orden debe poder recalcularse 1:1 desde su snapshot (locked_fee_structure + decision_id + policy_version).
 - Compilación a breakdown final (FeePolicyResolver) y snapshot en checkout.
 - Ledger split determinístico:
 - Ejecución de reembolsos/disputas (lo hace el pipeline de money/disputas; este motor solo fija reglas y splits snapshotteados).
 - Checkout Financial Engine (FeePolicyResolver): compila RateVector a breakdown y snapshot.
 - 4.2 Checkout: resolver breakdown + snapshot (no retroactividad)
-- Orden creada queda congelada: todo settlement/refund/dispute usará ese snapshot.
+- Orden creada queda congelada: Operación definida y validada settlement/refund/dispute usará ese snapshot.
 
 ## Constraints y claves de negocio
 - Definición: Motor único que gobierna, de forma dinámica, determinista y auditable, todos los porcentajes (rates) que impactan el dinero de una orden, separando estrictamente:
@@ -19,6 +19,18 @@
 - Idempotencia
 - Sistema Unificado “Take Rate Engine + Revenue Rate Engine” v2.0 (Rate Intelligence OS)
 - Fuente de verdad: “Motor Unificado de Rates para Aventide Gift”.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo rate-engine`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RATEENGINE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/rate-engine/dominio-rate-engine-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RATEENGINE-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-unificado-take-rate-engine--revenue-rate-engine-v20-260207_0946.docx`

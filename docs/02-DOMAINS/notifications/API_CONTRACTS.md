@@ -2,7 +2,7 @@
 
 ## Endpoints
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - error_code
 - (provider,error_code,created_at desc)
@@ -16,7 +16,7 @@
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - AuthGuard
 - PAYMENT_AUTHORIZED
 - Definición: Sistema de comunicación automatizada que recibe eventos de negocio (órdenes, pagos, PIN, disputas, payouts, seguridad, etc.), decide canal + plantilla + destinatarios, entrega por proveedores externos (Push/Email/SMS/WhatsApp) y siempre guarda una copia en el Inbox in-app, que es la fuente de verdad auditable.
@@ -32,6 +32,18 @@
 - Idempotencia (reglas duras)
 - Inbox: idempotente por (event_id, recipient_user_id, template_id) (Suposición: el doc fija dedupe para delivery; se extiende a Inbox para no duplicar mensajes en reintentos, consistente con “Inbox=verdad”).
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo notifications`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NOTIFICATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/notifications/dominio-notifications-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NOTIFICATION-241`
 
 ## Trazabilidad
 

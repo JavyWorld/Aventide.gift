@@ -12,19 +12,31 @@
 
 ## Límites
 
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Private-by-default: nada del círculo es visible fuera (incluye recipients externos). (Inferencia: consistente con “grupo privado”).
 - Reglas y políticas (límites, expiraciones, caps, validaciones)
 
 ## Dependencias
 
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Errores de notificación “gift incoming” (dependencia Notificaciones)
 - Miembros del círculo (usuarios Aventide) + invitación/aceptación (evento explícito).
 - Private-by-default: nada del círculo es visible fuera (incluye recipients externos). (Inferencia: consistente con “grupo privado”).
 - Moderación: evitar temas sensibles/abusivos (dependencia Moderación).
 - invitaciones usan mecanismos definidos en Usuarios (contactos/lookup). (Inferencia: dependencia natural)
 - Compatibilidad con sistemas existentes (dependencias directas)
+
+
+## Control operativo verificable
+
+- Owner: `Equipo neighborhoods`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NEIGHBORHOOD-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/neighborhoods/dominio-neighborhoods-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NEIGHBORHOOD-241`
 
 ## Trazabilidad
 

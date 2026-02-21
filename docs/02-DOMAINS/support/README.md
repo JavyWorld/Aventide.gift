@@ -7,7 +7,7 @@
 - sla_first_response_at, sla_resolution_at
 - Sistema de Soporte v2.0 (Support OS + Disputas) — corregido y unificado
 - Fuente de verdad: “Sistema de Soporte (Support OS) — Especificación técnica (Aventide Gift)”.Objetivo del rewrite: eliminar improvisación (“call center infinito”), separar correctamente Incidencias vivas vs Disputas post-entrega, prohibir montos manuales, hacer ejecución financiera determinista + auditable, y alinear permisos, jerarquía, órdenes (state machine), evidencia (Tridente) y ledger/snapshots.
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Definición: Support OS es el sistema interno para resolver incidentes y disputas con evidencia y reglas. Opera como orquestador de:
 - Documento origen: `sistema-de-soporte-260207_0731.docx`
 - Casos de disputa (state machine formal),
@@ -21,18 +21,30 @@
 ## Límites
 
 - Definición: Support OS es el sistema interno para resolver incidentes y disputas con evidencia y reglas. Opera como orquestador de:
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - support.ticket.assign/escalate (L1+ con límites)
 - Reglas y políticas (límites, expiraciones, caps, validaciones)
 
 ## Dependencias
 
 - Ejecución financiera (Saga + idempotencia + ledger/auditoría WORM).
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Fuente de verdad: “Sistema de Soporte (Support OS) — Especificación técnica (Aventide Gift)”.Objetivo del rewrite: eliminar improvisación (“call center infinito”), separar correctamente Incidencias vivas vs Disputas post-entrega, prohibir montos manuales, hacer ejecución financiera determinista + auditable, y alinear permisos, jerarquía, órdenes (state machine), evidencia (Tridente) y ledger/snapshots.
 - Integración con Trust & Safety: colusión/abuso/extorsión, moderación de reseñas conflictivas.
 - Dependencia crítica (no duplicar): financial_snapshot_locked de la orden se referencia por order_id y es el input determinista del cálculo.
 - Compatibilidad con sistemas existentes (dependencias directas)
+
+
+## Control operativo verificable
+
+- Owner: `Equipo support`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SUPPORT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/support/dominio-support-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SUPPORT-241`
 
 ## Trazabilidad
 

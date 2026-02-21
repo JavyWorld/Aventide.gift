@@ -7,14 +7,14 @@
 - Documento origen: `estructura-v2-260207_1049.docx`
 - Service actors: workers/webhooks corren con service_id para trazabilidad/auditoría.
 - Pagos: Rapyd (sessions por country_code, wallets/escrow, payouts + webhooks).
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Título extraído: "Estructura v2.0 (Estructura del Proyecto / Plataforma Aventide Gift)".
 
 ## Límites
 
 - Un core único (misma API/reglas/datos) para web+mobile+paneles.
 - Multi-país/territorio como “primera clase” en requests, UI, reglas, búsqueda, pagos, auditoría y analítica.
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Regional OS incluye Studio para operar config/UI/merchandising bajo guardrails y auditoría.
 - Alcance
 
@@ -26,6 +26,18 @@
 - Eventos y triggers (estructura de integración)
 - Separación explícita Client / Server / Integraciones para evitar acoplamientos peligrosos (especialmente dinero).
 - Plano asíncrono obligatorio (BullMQ/workers) para integraciones y procesos críticos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo platform-structure`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-PLATFORMSTRU-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/platform-structure/dominio-platform-structure-operacion`
+  - `https://jira.aventide.gift/browse/OPS-PLATFORMSTRU-241`
 
 ## Trazabilidad
 

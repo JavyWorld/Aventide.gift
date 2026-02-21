@@ -9,8 +9,20 @@ Reglas no negociables del dominio:
 - AuditGuard (razón obligatoria + WORM append-only)
 - Usar solo si falla automático (ej. GPS malo) pero hay evidencia fuerte (foto válida). Lo ejecuta L3 y queda auditado.
 - B3) Resolución expresada en buckets (siempre)
-- Nunca “% bonitos” ni “monto libre”; todo es bucket contable:
+- Nunca “% bonitos” ni “monto libre”; Operación definida y validada es bucket contable:
 - 5.1 Invariantes no negociables
+
+
+## Control operativo verificable
+
+- Owner: `Equipo support`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SUPPORT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/support/dominio-support-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SUPPORT-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-soporte-260207_0731.docx`

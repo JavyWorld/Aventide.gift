@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - y FS queda en PENDING_BUDGET (sub-estado interno) o se omite (según policy país; se define en policy).Suposición: el documento define el budget pero no el comportamiento exacto al agotarse; se mantiene determinismo via policy.
 - Una vez que el referred hace FIRST_ORDER_COMPLETED, la atribución queda “locked” (no más overwrite).Suposición: el doc no define explícitamente el lock post-primera orden, pero es consistente con la máquina de estados determinista y evita manipulación.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo referrals`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REFERRALS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/referrals/dominio-referrals-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REFERRALS-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-referido-260207_0826.docx`

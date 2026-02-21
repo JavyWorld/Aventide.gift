@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - penalty_events(entity_type=Seller, entity_id, penalty_code, severity, reason_codes[], starts_at, ends_at, created_by(AUTO|ADMIN), audit_ref)Índices:
 - 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
 
+
+## Control operativo verificable
+
+- Owner: `Equipo reputation-seller`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REPUTATIONSE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reputation-seller/dominio-reputation-seller-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REPUTATIONSE-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-reputacion-seller-260207_0839.docx`

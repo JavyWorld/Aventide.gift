@@ -17,6 +17,18 @@
 - Eventos del dominio Usuarios
 - Entrega/Tridente: identidad del evento de entrega ligada a evidencia; confirmación robusta.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo users`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-USERS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/users/dominio-users-operacion`
+  - `https://jira.aventide.gift/browse/OPS-USERS-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-usuarios-260206_2328.docx`

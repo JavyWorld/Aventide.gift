@@ -15,8 +15,20 @@
 - Continuidad / Country Governance (VACANT/LOCKDOWN, break-glass, four-eyes, WORM).
 - Reserva Nacional v2.0 (Layer 1, workflow, prohibiciones, observabilidad).
 - Resumen (marco global de split/ledger/policies y controles críticos).
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
 - Definición: La Reserva Global es la “caja de último recurso” del ecosistema multi-país, implementada como una cuenta central de ledger (GLOBAL_RESERVE) que actúa como Layer 3 del Waterfall de pérdidas. Solo entra cuando Country Reserve y COL Liability no alcanzan, y cuando entra, crea automáticamente una obligación de recuperación contra el COL vía GLOBAL_RECOVERY_RECEIVABLE_{country} + recovery_account (set-off sobre earnings futuros), con guardrails.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo reservas-global`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RESERVASGLOB-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reservas-global/dominio-reservas-global-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RESERVASGLOB-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-reserva-global-260207_1041.docx`

@@ -14,13 +14,25 @@
 
 ## Códigos de error
 
-- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+- Catálogo de errores operativo: cada código incluye causa raíz, acción de mitigación y ownership de resolución en guardia.
 
 ## Idempotency
 
 - Idempotencia estricta: mismo evento no puede cobrarse dos veces.
 - idempotency-key
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo waterfall`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-WATERFALL-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/waterfall/dominio-waterfall-operacion`
+  - `https://jira.aventide.gift/browse/OPS-WATERFALL-241`
 
 ## Trazabilidad
 

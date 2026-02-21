@@ -17,6 +17,18 @@
 - Corrección de incoherencia: StrikeLedger es proyección; los cambios reales ocurren vía eventos STRIKE_APPLIED + policy engine que setea flags en user_status y seller_operational_flags.
 - Eventos mínimos
 
+
+## Control operativo verificable
+
+- Owner: `Equipo moderation`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-MODERATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/moderation/dominio-moderation-operacion`
+  - `https://jira.aventide.gift/browse/OPS-MODERATION-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-moderacion-260207_0828.docx`

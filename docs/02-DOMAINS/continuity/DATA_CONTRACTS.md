@@ -20,5 +20,17 @@
 - Idempotencia (mínima)
 - Disbursement: idempotency_key por request (worker ejecuta una vez).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo continuity`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTINUITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/continuity/dominio-continuity-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTINUITY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-continuidad-v2-260207_1030.docx`

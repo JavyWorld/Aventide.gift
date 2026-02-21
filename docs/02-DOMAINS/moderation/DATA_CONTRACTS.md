@@ -20,5 +20,17 @@
 - type (DEVICE_ID|IP_HASH|PAYMENT_METHOD_HASH|PHONE_NORMALIZED)
 - value_hash
 
+
+## Control operativo verificable
+
+- Owner: `Equipo moderation`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-MODERATION-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/moderation/dominio-moderation-operacion`
+  - `https://jira.aventide.gift/browse/OPS-MODERATION-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-moderacion-260207_0828.docx`

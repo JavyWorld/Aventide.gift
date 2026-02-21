@@ -21,6 +21,18 @@
 - Eventos derivados:
 - eventos de cancelación tardía / PIN withheld, etc.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo reputation-buyer`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REPUTATIONBU-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reputation-buyer/dominio-reputation-buyer-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REPUTATIONBU-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-reputacion-buyer-260207_0839.docx`

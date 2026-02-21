@@ -12,5 +12,17 @@
 - document_events
 - event_id
 
+
+## Control operativo verificable
+
+- Owner: `Equipo billing-docs`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-BILLINGDOCS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/billing-docs/dominio-billing-docs-operacion`
+  - `https://jira.aventide.gift/browse/OPS-BILLINGDOCS-241`
+
 ## Trazabilidad
 - Documento origen: `facturacion--documentos-260207_0805.docx`

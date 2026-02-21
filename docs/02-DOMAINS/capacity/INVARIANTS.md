@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - Doble confirmación de pago: consume es idempotente por reservation_id y estado.
 - 5.5 Anti-sobreventa (reglas invariantes)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo capacity`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CAPACITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/capacity/dominio-capacity-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CAPACITY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-capacidad--disponibilidad-260207_0922.docx`

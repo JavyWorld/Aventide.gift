@@ -5,7 +5,7 @@
 - Evidencia y reconciliación: webhooks raw almacenados, dedupe, idempotencia y logs por handler.
 - Webhook Gateway inbound: verificación firma, persistencia RAW, dedupe, encolado y procesamiento idempotente.
 - Outbound webhooks a partners (si aplica): HMAC, retries, DLQ, payload con event_id/idempotency.
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Integration Registry por país y tipo: qué proveedor está activo, timeouts, rate limits, retry policy y secrets refs.
 - integrations.jobs.retry (ops/support; auditado)
@@ -17,7 +17,7 @@
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Guarda provider_message_id, estado y errores.
 
 ## Códigos de error
@@ -34,6 +34,18 @@
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Duplicados por retry del proveedor: dedupe responde OK sin repetir efectos.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+
+## Control operativo verificable
+
+- Owner: `Equipo integrations`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-INTEGRATIONS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/integrations/dominio-integrations-operacion`
+  - `https://jira.aventide.gift/browse/OPS-INTEGRATIONS-241`
 
 ## Trazabilidad
 

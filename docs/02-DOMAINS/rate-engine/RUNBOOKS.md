@@ -18,5 +18,17 @@
 - Rollback automático si se rompen SLOs (conversión/riesgo/margen).
 - Rollback: (country_code, target_version_id)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo rate-engine`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RATEENGINE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/rate-engine/dominio-rate-engine-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RATEENGINE-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-unificado-take-rate-engine--revenue-rate-engine-v20-260207_0946.docx`

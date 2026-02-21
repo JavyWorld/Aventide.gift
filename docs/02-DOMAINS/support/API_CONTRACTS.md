@@ -3,23 +3,23 @@
 ## Endpoints
 
 - Ejecución financiera (Saga + idempotencia + ledger/auditoría WORM).
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - saga_state, idempotency_keys[]
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Fuente de verdad: “Sistema de Soporte (Support OS) — Especificación técnica (Aventide Gift)”.Objetivo del rewrite: eliminar improvisación (“call center infinito”), separar correctamente Incidencias vivas vs Disputas post-entrega, prohibir montos manuales, hacer ejecución financiera determinista + auditable, y alinear permisos, jerarquía, órdenes (state machine), evidencia (Tridente) y ledger/snapshots.
 - EvidenceGuard (para acciones que dependan de PoD)
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Fuente de verdad: “Sistema de Soporte (Support OS) — Especificación técnica (Aventide Gift)”.Objetivo del rewrite: eliminar improvisación (“call center infinito”), separar correctamente Incidencias vivas vs Disputas post-entrega, prohibir montos manuales, hacer ejecución financiera determinista + auditable, y alinear permisos, jerarquía, órdenes (state machine), evidencia (Tridente) y ledger/snapshots.
 - EvidenceGuard (para acciones que dependan de PoD)
 
 ## Códigos de error
 
-- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+- Catálogo de errores operativo: cada código incluye causa raíz, acción de mitigación y ownership de resolución en guardia.
 
 ## Idempotency
 
@@ -27,6 +27,18 @@
 - saga_state, idempotency_keys[]
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
+
+
+## Control operativo verificable
+
+- Owner: `Equipo support`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SUPPORT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/support/dominio-support-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SUPPORT-241`
 
 ## Trazabilidad
 

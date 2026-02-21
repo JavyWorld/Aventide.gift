@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - backup.reports.read (backupauditor)
 - BreakGlassGuard (dual approval + logging inmutable)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo backup`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-BACKUP-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/backup/dominio-backup-operacion`
+  - `https://jira.aventide.gift/browse/OPS-BACKUP-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-copia-de-seguridad-260207_0955.docx`

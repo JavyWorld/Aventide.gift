@@ -20,5 +20,17 @@
 - Foto: evidencia obligatoria; URL firmada privada; acceso limitado por rol (Soporte/Legal).
 - PoD no libera dinero directamente; se emite evento interno y un worker/cola ejecuta settlement/payout con idempotencia.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo security`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-SECURITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/security/dominio-security-operacion`
+  - `https://jira.aventide.gift/browse/OPS-SECURITY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-seguridad-260207_0756.docx`

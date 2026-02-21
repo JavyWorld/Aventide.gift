@@ -3,24 +3,24 @@
 ## Endpoints
 
 - Workflow de desembolso desde COUNTRY_RESERVE con four-eyes + ejecución idempotente por worker + auditoría WORM.
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - SYSTEM/WORKERS: ejecutan jobs idempotentes (reroute colas, payouts, holds, disbursements).
 - Cadena base: AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard.
 - RBAC_ROLE_REVOKED + RBAC_SCOPE_REVOKED al COL saliente + invalidación de sesiones/claims.
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - status: REQUESTED | APPROVED | EXECUTED | REJECTED
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 
 ## Auth
 
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - Cadena base: AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard.
 - RBAC_ROLE_REVOKED + RBAC_SCOPE_REVOKED al COL saliente + invalidación de sesiones/claims.
 
 ## Códigos de error
 
-- Definir catálogo de errores de negocio y técnicos alineado a los invariantes del dominio.
+- Catálogo de errores operativo: cada código incluye causa raíz, acción de mitigación y ownership de resolución en guardia.
 
 ## Idempotency
 
@@ -28,6 +28,18 @@
 - SYSTEM/WORKERS: ejecutan jobs idempotentes (reroute colas, payouts, holds, disbursements).
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+
+## Control operativo verificable
+
+- Owner: `Equipo continuity`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTINUITY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/continuity/dominio-continuity-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTINUITY-241`
 
 ## Trazabilidad
 

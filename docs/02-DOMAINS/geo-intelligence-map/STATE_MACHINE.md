@@ -22,6 +22,18 @@
 - Consumir eventos order_created/paid/delivered/canceled/dispute_opened, normalizar hub/zone por point-in-polygon, actualizar agregados incrementalmente.
 - Analytics backbone alimenta geo_metrics_agg y heatmaps; el mapa consume agregados, no eventos crudos.
 
+
+## Control operativo verificable
+
+- Owner: `Equipo geo-intelligence-map`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-GEOINTELLIGE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/geo-intelligence-map/dominio-geo-intelligence-map-operacion`
+  - `https://jira.aventide.gift/browse/OPS-GEOINTELLIGE-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-geo-intelligence-map-260207_1103.docx`

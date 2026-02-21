@@ -4,7 +4,7 @@
 
 - Sistema de Reputación v2.0 (Buyer Only) — corregido y unificado
 - Fuente de verdad: “Sistema de Reputación (Trust Engine) — Aventide Gift”.
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Definición: Sistema que calcula un Buyer Trust Score (0–100) y lo expone al seller como Trust Level + Trust Badge (semi-visible) para equilibrar privacidad (incl. “Admirador Secreto”) con seguridad operacional. No es público ni “humilla” al buyer; es un control de riesgo para sellers y plataforma.
 - Documento origen: `sistema-de-reputacion-buyer-260207_0839.docx`
 - Buyer Reviews (reviews_buyer) como insumo de integridad (no “rating público” del buyer).
@@ -16,15 +16,27 @@
 
 - SYSTEM/BOT: calcula score, aplica fricción y límites, genera eventos, mantiene historial.
 - Integración consistente con Órdenes, Disputas, Moderación y Búsqueda: el score define fricción inteligente y límites (no mueve dinero directamente).
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Acciones por nivel: límites de cancelación tardía, fricción adicional en alto valor, hold de reviews si riesgo, verificación adicional, suspensión por chargebacks.
 
 ## Dependencias
 
 - Fuente de verdad: “Sistema de Reputación (Trust Engine) — Aventide Gift”.
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Integración consistente con Órdenes, Disputas, Moderación y Búsqueda: el score define fricción inteligente y límites (no mueve dinero directamente).
 - Motor completo de Moderación (solo integración).
+
+
+## Control operativo verificable
+
+- Owner: `Equipo reputation-buyer`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-REPUTATIONBU-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reputation-buyer/dominio-reputation-buyer-operacion`
+  - `https://jira.aventide.gift/browse/OPS-REPUTATIONBU-241`
 
 ## Trazabilidad
 

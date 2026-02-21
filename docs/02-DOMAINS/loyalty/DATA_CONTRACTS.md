@@ -7,7 +7,7 @@
 - loyalty.ledger.read (finance/audit)
 - AuditGuard (toda mutación crea ledger entry append-only)
 - Se crea ledger entry LOYALTY_POINTS_EARNED idempotente por order_id + policy_version.
-- Soporta misiones “baratas” con caps: streak semanal, explorador por categoría, review verificada (con caps).Regla dura: todo earn adicional también pasa por ledger y caps para no romper presupuesto.
+- Soporta misiones “baratas” con caps: streak semanal, explorador por categoría, review verificada (con caps).Regla dura: Operación definida y validada earn adicional también pasa por ledger y caps para no romper presupuesto.
 - Ledger: LOYALTY_POINTS_REDEEMED_TO_FEE_CREDIT (AP–, FS+).
 
 ## Constraints y claves de negocio
@@ -19,6 +19,18 @@
 - checkout_id (nullable; para apply idempotente)
 - unique por idempotencia:
 - 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+
+## Control operativo verificable
+
+- Owner: `Equipo loyalty`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-LOYALTY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/loyalty/dominio-loyalty-operacion`
+  - `https://jira.aventide.gift/browse/OPS-LOYALTY-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-lealtad-260207_0817.docx`

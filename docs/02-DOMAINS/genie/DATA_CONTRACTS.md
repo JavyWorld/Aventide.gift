@@ -20,5 +20,17 @@
 - GENIE_RESULTS_GENERATED idempotente por (session_id, answers_hash, policy_version, availability_snapshot_ref) (Suposición: consistente con gates duros y policies).
 - Sistema Genie v2.0 (Gift Wizard / “Pregúntale al Genie”) — Solo Genie (sin Memory)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo genie`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-GENIE-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/genie/dominio-genie-operacion`
+  - `https://jira.aventide.gift/browse/OPS-GENIE-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-genie-260207_1012.docx`

@@ -20,5 +20,17 @@
 - spend: unique(wallet_id, order_id, type=SPEND) si spend se hace al confirmar orden, o unique(wallet_id, checkout_id) si spend se hace en checkout (recomendado al calcular).Suposición: el documento fija idempotencia conceptual, no el campo exacto; se mantiene consistencia con “idempotente por checkout”.
 - promo_snapshot(order_id, json_snapshot, policy_versions_hash) con:
 
+
+## Control operativo verificable
+
+- Owner: `Equipo internal-credit`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-INTERNALCRED-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/internal-credit/dominio-internal-credit-operacion`
+  - `https://jira.aventide.gift/browse/OPS-INTERNALCRED-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-credito-interno-260207_0827.docx`

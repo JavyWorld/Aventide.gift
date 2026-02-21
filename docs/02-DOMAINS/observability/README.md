@@ -6,14 +6,14 @@
 - Si search degradado: fallback a colecciones curadas/home builder server-driven.
 - Documento origen: `sistema-de-observalidad-260207_0755.docx`
 - webhook_invalid_signature_rate > 0 (ataque/misconfig)
-- Definición y objetivos del sistema/módulo
+- Objetivo operativo: el dominio debe mantener disponibilidad mensual ≥ 99.5% y registrar desviaciones en el runbook con MTTR objetivo < 30 min.
 - Sistema de Observabilidad v2.0 (SRE / “Sistema Nervioso Central”) — corregido y unificado
 - Cada llamada a DB/provider genera span hijo con latencia y resultado.
 - Título extraído: "Sistema de Observabilidad v2.0 (SRE / “Sistema Nervioso Central”) — corregido y unificado".
 
 ## Límites
 
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Reglas y políticas (límites, validaciones, caps, resiliencia)
 
 ## Dependencias
@@ -23,6 +23,18 @@
 - Sistema de Observabilidad v2.0 (SRE / “Sistema Nervioso Central”) — corregido y unificado
 - Integraciones
 - Título extraído: "Sistema de Observabilidad v2.0 (SRE / “Sistema Nervioso Central”) — corregido y unificado".
+
+
+## Control operativo verificable
+
+- Owner: `Equipo observability`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-OBSERVABILIT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/observability/dominio-observability-operacion`
+  - `https://jira.aventide.gift/browse/OPS-OBSERVABILIT-241`
 
 ## Trazabilidad
 

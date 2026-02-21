@@ -20,5 +20,17 @@
 - Link recipient: idempotente por unique key en circle_recipients.
 - Auditoría append-only de:
 
+
+## Control operativo verificable
+
+- Owner: `Equipo neighborhoods`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-NEIGHBORHOOD-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/neighborhoods/dominio-neighborhoods-operacion`
+  - `https://jira.aventide.gift/browse/OPS-NEIGHBORHOOD-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-barrio-260207_1012.docx`

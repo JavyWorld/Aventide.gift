@@ -6,13 +6,13 @@
 - Auditoría inmutable (Black Box/WORM) para identidad y escaladas: cambios de RBAC, impersonation, overrides.
 - Auth Service federado (Firebase Auth o Auth0) + login Google/Apple/teléfono (WhatsApp Auth).
 - Backend mantiene tabla users y emite JWT con claims de rol/permisos/scope (modelo de sesión unificado).
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - session_flags (2FA, risk level, break-glass, etc.)Base: “rol viaja en JWT” + backend aplica middleware por permiso.
 - Auth (token válido)
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Regla dura backend en compra: si Zone.Status != ACTIVE → error “Zone Suspended”.
 - id, user_id, country_code, hub_id, zone_id, business_address_id, kyc_payload_json, status (DRAFT|SUBMITTED|PENDING_APPROVAL|APPROVED|REJECTED|WAITLISTED), reviewed_by, reviewed_at, decision_reason_codes[]
-- Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Integraciones operativas: cada dependencia externa define timeout, política de retry exponencial y fallback degradado con alerta P2.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - RBAC changes, overrides, impersonation, cambios de estado de cuenta y borrado → append-only.
 - id (UUID), auth_provider (firebase|auth0), provider_user_id, email, phone_e164, email_verified, phone_verified
@@ -23,7 +23,7 @@
 - Auditoría inmutable (Black Box/WORM) para identidad y escaladas: cambios de RBAC, impersonation, overrides.
 - Auth Service federado (Firebase Auth o Auth0) + login Google/Apple/teléfono (WhatsApp Auth).
 - Backend mantiene tabla users y emite JWT con claims de rol/permisos/scope (modelo de sesión unificado).
-- Actores y permisos (RBAC) + guards
+- Control de acceso operativo: cada endpoint exige rol permitido, guard de ownership y auditoría de denegaciones 403.
 - session_flags (2FA, risk level, break-glass, etc.)Base: “rol viaja en JWT” + backend aplica middleware por permiso.
 - Auth (token válido)
 - RBAC changes, overrides, impersonation, cambios de estado de cuenta y borrado → append-only.
@@ -37,6 +37,18 @@
 
 - Requisito derivado: usar claves idempotentes para operaciones mutables y sagas/reintentos.
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+
+## Control operativo verificable
+
+- Owner: `Equipo users`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-USERS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/users/dominio-users-operacion`
+  - `https://jira.aventide.gift/browse/OPS-USERS-241`
 
 ## Trazabilidad
 

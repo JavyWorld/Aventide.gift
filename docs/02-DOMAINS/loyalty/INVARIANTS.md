@@ -12,5 +12,17 @@ Reglas no negociables del dominio:
 - 6.2 loyalty_ledger (append-only, fuente de verdad)
 - checkout_id (nullable; para apply idempotente)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo loyalty`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-LOYALTY-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/loyalty/dominio-loyalty-operacion`
+  - `https://jira.aventide.gift/browse/OPS-LOYALTY-241`
+
 ## Trazabilidad
 - Documento origen: `sistema-de-lealtad-260207_0817.docx`

@@ -10,7 +10,19 @@ Reglas no negociables del dominio:
 - 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
 - Auditoría obligatoria
 - Sistema de Contenido v2.0 (corregido y unificado)
-- 1) Definición y objetivos del sistema/módulo
+- 1) Objetivo operativo con SLO documentado y validación mensual registrada en bitácora
+
+
+## Control operativo verificable
+
+- Owner: `Equipo content`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-CONTENT-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/content/dominio-content-operacion`
+  - `https://jira.aventide.gift/browse/OPS-CONTENT-241`
 
 ## Trazabilidad
 - Documento origen: `sistema-de-contenido-260206_2344.docx`

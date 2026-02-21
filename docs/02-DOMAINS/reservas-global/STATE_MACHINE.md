@@ -19,6 +19,18 @@
 - Eventos y triggers
 - EMERGENCY_ESCALATION_TRIGGERED(loss_case_id) (ya existe como flujo)
 
+
+## Control operativo verificable
+
+- Owner: `Equipo reservas-global`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-RESERVASGLOB-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/reservas-global/dominio-reservas-global-operacion`
+  - `https://jira.aventide.gift/browse/OPS-RESERVASGLOB-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-reserva-global-260207_1041.docx`

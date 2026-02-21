@@ -17,6 +17,18 @@
 - Eventos y triggers (event bus/colas/webhooks) + idempotencia
 - Eventos mínimos
 
+
+## Control operativo verificable
+
+- Owner: `Equipo integrations`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-INTEGRATIONS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/integrations/dominio-integrations-operacion`
+  - `https://jira.aventide.gift/browse/OPS-INTEGRATIONS-241`
+
 ## Trazabilidad
 
 - Documento origen: `sistema-de-integraciones-260207_0951.docx`

@@ -12,6 +12,18 @@
 
 - Reglas fiscales específicas de cada país (se delegan a Facturación & Documentos, invocadas por evento).
 
+
+## Control operativo verificable
+
+- Owner: `Equipo disputes`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-DISPUTES-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/disputes/dominio-disputes-operacion`
+  - `https://jira.aventide.gift/browse/OPS-DISPUTES-241`
+
 ## Trazabilidad
 
 - Documento origen: `disputas-260207_0809.docx`

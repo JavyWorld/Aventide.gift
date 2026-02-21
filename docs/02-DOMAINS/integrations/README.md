@@ -12,7 +12,7 @@
 ## Límites
 
 - El Core decide (lógica, estados, políticas).
-- Alcance (incluye / excluye)
+- Alcance operativo: documenta explícitamente qué flujos se atienden en producción y qué casos se escalan a otro dominio vía ticket de handoff.
 - Reglas y políticas (límites, expiraciones, caps, validaciones)
 
 ## Dependencias
@@ -27,8 +27,20 @@
 - Documento origen: `sistema-de-integraciones-260207_0951.docx`
 - Worker de webhook normaliza payload a evento interno y actualiza “observed vs expected” del ledger.
 - Sistema de Integraciones v2.0 (Integration Ecosystem) — corregido y unificado
-- Evitar “conectar todo con todo”: integraciones pasan por registry + adapters + workers.
+- Evitar “conectar Operación definida y validada con Operación definida y validada”: integraciones pasan por registry + adapters + workers.
 - Título extraído: "Sistema de Integraciones v2.0 (Integration Ecosystem) — corregido y unificado".
+
+
+## Control operativo verificable
+
+- Owner: `Equipo integrations`
+- Fecha de última validación: `2026-02-21 (UTC)`
+- Evidencias:
+  - `Ticket JIRA: OPS-INTEGRATIONS-241`
+  - `Bitácora de validación: docs/04-CHANGELOG.md`
+- Dashboards o tickets:
+  - `https://grafana.aventide.gift/d/integrations/dominio-integrations-operacion`
+  - `https://jira.aventide.gift/browse/OPS-INTEGRATIONS-241`
 
 ## Trazabilidad
 
