@@ -148,10 +148,19 @@ Mitigación mínima: gates de despliegue (`docs/05-DEPLOY-GATES.md`), runbooks p
 
 ### 9.3 Decisiones pendientes
 
-- Definir criterio formal de “listo para retiro de `/Sistemas`” con evidencia automatizable por dominio.
-- Versionado semántico de contratos cross-domain para cambios incompatibles.
-- Política de expansión multi-país (orden de países, controles mínimos, ownership legal-operativo).
-- Estándar de pruebas de caos y DR para dominios money-critical.
+- Definir criterio formal de “listo para retiro de `/Sistemas`” con evidencia automatizable por dominio. Ver [ADR-STR-001](./01-ADR/ADR-STR-001-criterio-retiro-sistemas.md).
+- Versionado semántico de contratos cross-domain para cambios incompatibles. Ver [ADR-STR-002](./01-ADR/ADR-STR-002-versionado-semantico-contratos-cross-domain.md).
+- Política de expansión multi-país (orden de países, controles mínimos, ownership legal-operativo). Ver [ADR-STR-003](./01-ADR/ADR-STR-003-politica-expansion-multi-pais.md).
+- Estándar de pruebas de caos y DR para dominios money-critical. Ver [ADR-STR-004](./01-ADR/ADR-STR-004-estandar-caos-dr-money-critical.md).
+
+## 11) Plan de cierre de pendientes
+
+| Pendiente estratégica | Responsable | Fecha objetivo | Dependencia | Criterio de aceptación verificable |
+|---|---|---|---|---|
+| Criterio formal para retiro de `/Sistemas` (ADR-STR-001) | Arquitectura Documental + Platform Structure | 2026-03-15 | Matriz de paridad 38/38 actualizada en `docs/00-INDEX.md` y checklist de evidencia por dominio | Se valida una corrida de verificación documental reproducible (38 dominios) y queda registro de resultado con 0 huecos críticos en criterios de paridad. |
+| Versionado semántico de contratos cross-domain (ADR-STR-002) | Architecture Guild + owners de contratos (`payments`, `rate-engine`, `waterfall`, `billing-docs`) | 2026-03-22 | Publicación de política de versionado y plantilla de changelog de breaking changes | Al menos 4 dominios money-critical publican versión de contrato con convención semver y changelog validado en revisión cruzada. |
+| Política de expansión multi-país (ADR-STR-003) | Dirección de Expansión + Legal/Compliance | 2026-03-29 | Priorización de países objetivo y mínimos regulatorios por país definidos | Existe matriz de priorización firmada (negocio + legal) y checklist de ingreso país aplicada a 1 piloto con evidencias. |
+| Estándar de caos y DR en money-critical (ADR-STR-004) | SRE/Continuidad + owners de pagos y settlement | 2026-04-05 | Definición de escenarios de caos, RTO/RPO objetivo y runbook de recuperación unificado | Se ejecuta simulacro documentado en entorno controlado para la cadena `order → payment → escrow → dispute → settlement` con cumplimiento de RTO/RPO acordado. |
 
 ## 10) Uso operacional de este blueprint
 
