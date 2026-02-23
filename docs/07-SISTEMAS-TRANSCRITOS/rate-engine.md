@@ -1,0 +1,280 @@
+# rate-engine · Transcripción integral desde `sistema-unificado-take-rate-engine--revenue-rate-engine-v20-260207_0946.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-unificado-take-rate-engine--revenue-rate-engine-v20-260207_0946.docx`
+- Dominio canónico asociado: `rate-engine`
+- Título detectado: Sistema Unificado “Take Rate Engine + Revenue Rate Engine” v2.0 (Rate Intelligence OS)
+
+## Transcripción
+
+- Sistema Unificado “Take Rate Engine + Revenue Rate Engine” v2.0 (Rate Intelligence OS)
+- Fuente de verdad: “Motor Unificado de Rates para Aventide Gift”.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Motor único que gobierna, de forma dinámica, determinista y auditable, todos los porcentajes (rates) que impactan el dinero de una orden, separando estrictamente:
+- lo que ve el buyer (buyer-facing, estable y acotado),
+- lo que se distribuye internamente (platform fee, payout al Country Ops Lead y Reserva Nacional por país) dentro de guardrails.
+- Este motor sustituye la lógica dispersa del “Take-Rate Engine OS” y del “Revenue Rate Engine” por un solo cerebro que produce un RateVector y lo “compila” a un breakdown financiero y a un blueprint de ledger/settlement, todo con snapshot por orden.
+- Objetivos (duros):
+- Reproducibilidad contable: cada orden debe poder recalcularse 1:1 desde su snapshot (locked_fee_structure + decision_id + policy_version).
+- No retroactividad: cambios de rates solo afectan órdenes futuras.
+- Maximizar margen neto esperado, no revenue bruto, incorporando costos externos, earned schedule, créditos/loyalty y riesgo.
+- Gestión de liquidez por país: crear y alimentar COUNTRY_RESERVE para cubrir disputas/chargebacks/reembolsos e incentivos con gobernanza.
+- Multi-país real: floors/ceilings, smoothing, segmentación segura y canary/rollback por país/hub/segmento.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Decidir y versionar los rates canónicos por country_code + segment_key + time_window (y opcional seller_tier).
+- Outputs canónicos por orden:
+- platform_fee_pct
+- ops_fee_cap_pct (fee buyer-facing para “Ops local” bajo límites)
+- ops_lead_earn_pct (payout real al COL)
+- country_reserve_pct = ops_fee_cap_pct - ops_lead_earn_pct (diferencial a Reserva Nacional)
+- Compilación a breakdown final (FeePolicyResolver) y snapshot en checkout.
+- Ledger split determinístico:
+- COUNTRY_RESERVE (por país)
+- COL_PAYABLE (por COL)
+- Ingreso de plataforma (platform revenue)
+- Guardrails: floors/ceilings, max delta, min samples, safe-mode, last-known-good.
+- Canary/rollback por versión de policy.
+- Auditoría WORM-style de decisiones, cambios, aprobaciones y órdenes afectadas por ventana temporal.
+- Excluye
+- Cálculo de impuestos/processing por proveedor (solo consume “costos externos” como inputs y los refleja en simulación/margen).
+- Ejecución de reembolsos/disputas (lo hace el pipeline de money/disputas; este motor solo fija reglas y splits snapshotteados).
+- Personalización por individuo (no permitido por diseño base; segmentación agregada).
+- 3) Actores y permisos (RBAC) + guards
+- Actores
+- SYSTEM (Rate Decision Service): calcula RateVector, emite decisiones, firma y versiona.
+- Checkout Financial Engine (FeePolicyResolver): compila RateVector a breakdown y snapshot.
+- COUNTRY_OPS_LEAD: consumidor: recibe payout (COL_PAYABLE), ve dashboards y justificación agregada.
+- COUNTRY_OPS_LEAD (operator): propone cambios “suaves” dentro de rangos permitidos (si se habilita).
+- SUPER_ADMIN: aprueba cambios de floors/ceilings y cambios excepcionales de caps (two-person rule recomendado).
+- FINANCE/AUDIT/LEGAL: lectura de auditoría, reconciliación, export.
+- Permisos mínimos
+- rates.policy.read (ops/finance)
+- rates.policy.publish (super_admin)
+- rates.policy.rollback (super_admin/ops lead scoped)
+- rates.decision.read (finance/audit)
+- rates.simulate.run (ops/finance)
+- rates.capfloor.change.request.create (ops lead/admin)
+- rates.capfloor.change.request.approve (super_admin)
+- rates.break_glass (super_admin; razón obligatoria)
+- Guards
+- ScopeGuard (country_code obligatorio)
+- PolicyVersionGuard (solo ACTIVE y dentro de vigencia)
+- GuardrailGuard (floors/ceilings, max delta, min samples, safe-mode)
+- DeterminismGuard (misma entrada → mismo RateVector)
+- AuditGuard (append-only: decisiones y cambios)
+- ApprovalGuard (four-eyes para cap/floor críticos; super_admin)
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Decisión de rates por ventana (Rate Decision Service)
+- Happy path
+- Cada time_window (ej. hourly/daily) por country_code + segment_key, el servicio:
+- carga rate_policy_version ACTIVE,
+- obtiene features/rollups de riesgo y margen,
+- decide un RateVector (con decision_id y explain_flags).
+- Publica RATE_VECTOR_PUBLISHED y persiste el vector para lookup.
+- Edge cases
+- Falta de datos (min samples no cumple): usar baseline last_good_version o vector previo “sticky”.
+- Métricas fuera de banda (disputas/chargebacks se disparan): activar safe_mode país y forzar rates conservadores + elevar reserve.
+- 4.2 Checkout: resolver breakdown + snapshot (no retroactividad)
+- Happy path
+- Checkout arma PolicyContext (country/segment/tier).
+- Pide RateVector vigente.
+- FeePolicyResolver calcula breakdown final y guarda:
+- locked_fee_structure
+- rate_policy_version
+- decision_id
+- segment_key
+- Orden creada queda congelada: todo settlement/refund/dispute usará ese snapshot.
+- Edge cases
+- Reintentos de checkout: idempotencia por checkout_session_id; no cambiar decision_id dentro de la misma sesión salvo expiración deliberada. (Inferencia: consistente con “snapshot no retroactivo” + control de consistencia).
+- 4.3 Money Pipeline: ledger split determinístico + reserve
+- Happy path
+- A partir de snapshot:
+- calcula montos para PLATFORM_REVENUE, COL_PAYABLE, COUNTRY_RESERVE.
+- Devenga ingreso (earned schedule) por hitos de orden, protegiendo platform fee.
+- Edge cases
+- Refund/disputa: reversiones proporcionales y deterministas desde snapshot (no manuales).
+- 4.4 Gobernanza: cambios de floors/ceilings (workflow formal)
+- Happy path
+- Se crea CapFloorChangeRequest con evidencia + rango propuesto + vigencia temporal + plan canary.
+- Requiere aprobación de SUPER_ADMIN (y second approver si se activa four-eyes).
+- Publicación crea nueva rate_policy_version y puede entrar vía canary.
+- Si falla: rollback automático a last_known_good.
+- 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+- 5.1 Outputs canónicos y su relación (regla matemática dura)
+- Para cada orden (o vector por segmento/ventana):
+- ops_lead_earn_pct <= ops_fee_cap_pct
+- country_reserve_pct = ops_fee_cap_pct - ops_lead_earn_pct
+- platform_fee_pct es independiente del bucket ops, pero sujeto a floors/ceilings por país/segmento.
+- 5.2 Separación buyer-facing vs distribución interna (regla estructural)
+- ops_fee_cap_pct (buyer-facing) debe ser estable, con cambios raros y gobernados.
+- ops_lead_earn_pct y platform_fee_pct pueden ajustarse más frecuentemente dentro de guardrails, sin cambiar lo cobrado al buyer si ops_fee_cap_pct no cambia.
+- 5.3 Guardrails obligatorios por país/segmento
+- Cada rate tiene:
+- floor, ceil
+- max_delta_per_day (smoothing)
+- min_samples_to_change
+- cooldown_after_change
+- safe_mode_profile (baseline conservador)
+- last_known_good_version
+- 5.4 Objetivo correcto: margen neto esperado (no revenue bruto)
+- El motor optimiza por país/segmento/ventana un objetivo tipo “NPM” (net platform margin), incorporando:
+- earned schedule,
+- costos externos (processing, soporte, disputas/chargebacks),
+- impacto de créditos/lealtad,
+- penalización por volatilidad (smoothing),
+- penalización por riesgo (cola).
+- 5.5 Segmentación permitida (anti-personalización)
+- Segmentación agregada recomendada por documentación:
+- country_code, hub/zone (si aplica por governance),
+- bucket de ticket,
+- categoría,
+- método de pago,
+- seller_tier.
+- Regla dura: no segmentar por individuo.
+- 5.6 “Safe mode” por riesgo y liquidez
+- Triggers (ejemplos operables)
+- dispute_rate o chargeback_rate sube sobre umbral,
+- caída fuerte de conversión,
+- shock operativo (picos de P0, fallos de payouts).
+- Acción:
+- congelar ops_fee_cap_pct (no cambiar),
+- reducir ops_lead_earn_pct dentro de floor/ceil,
+- aumentar country_reserve_pct (dentro de límites),
+- opcionalmente ajustar platform_fee_pct si es necesario y permitido.
+- 5.7 Canary/rollback (operación de producción)
+- Rollout escalonado por country_code + segment_key: 5% → 25% → 100%.
+- Rollback automático si se rompen SLOs (conversión/riesgo/margen).
+- 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+- 6.1 rate_policy_versions (config por país)
+- Campos mínimos
+- policy_version_id
+- country_code
+- effective_from, effective_to
+- status (DRAFT|ACTIVE|ARCHIVED)
+- platform_take_policy_json (floors/ceil/candidates/guardrails)
+- ops_cap_policy_json
+- col_comp_policy_json
+- risk_policy_json (umbrales, safe_mode)
+- rollout_plan_json (canary)
+- last_good_version_id
+- created_by, approved_by, approved_at
+- audit_ref
+- Índices:
+- (country_code,status,effective_from)
+- unique(country_code,policy_version_id)
+- 6.2 rate_vectors (resultado de decisión)
+- Campos mínimos
+- decision_id
+- country_code
+- segment_key
+- time_window_start, time_window_end
+- policy_version_id
+- platform_fee_pct
+- ops_fee_cap_pct
+- ops_lead_earn_pct
+- country_reserve_pct
+- explain_flags_json
+- created_at
+- Índices:
+- unique(country_code,segment_key,time_window_start)
+- (policy_version_id,created_at desc)
+- 6.3 locked_fee_structure (snapshot por orden)
+- Campos mínimos
+- order_id
+- policy_version_id
+- decision_id
+- segment_key
+- rates_json (los 4 rates + reglas relevantes)
+- breakdown_json (montos calculados)
+- created_at
+- Índices:
+- unique(order_id)
+- (policy_version_id,created_at desc)
+- 6.4 ledger_accounts (por país)
+- COUNTRY_RESERVE:{country_code}
+- COL_PAYABLE:{country_code}:{col_id}
+- PLATFORM_REVENUE:{country_code}
+- 6.5 cap_floor_change_requests
+- Campos mínimos
+- request_id
+- country_code
+- rates_affected[]
+- proposed_ranges_json
+- justification
+- evidence_refs[]
+- effective_from/to
+- rollout_plan
+- status (OPEN|APPROVED|REJECTED|EXECUTED)
+- approvals[] (actor_id, time)
+- audit_ref
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Eventos mínimos
+- RATE_POLICY_PUBLISHED
+- RATE_POLICY_ROLLED_BACK
+- RATE_VECTOR_PUBLISHED
+- CHECKOUT_RATE_SNAPSHOTTED
+- SAFE_MODE_ENABLED/DISABLED
+- CAP_FLOOR_CHANGE_REQUEST_CREATED/APPROVED/REJECTED/EXECUTED
+- Idempotencia
+- Publicación de policy: (country_code, policy_version_id)
+- Rate vector por ventana: (country_code, segment_key, time_window_start)
+- Snapshot: (order_id)
+- Rollback: (country_code, target_version_id)
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Entradas (features/rollups)
+- conversion_rate por segmento
+- dispute_rate, chargeback_rate, refund_rate
+- processing_cost_rate (por método de pago)
+- support_cost_estimate
+- loyalty/credits burn rate
+- earned_schedule_progress y outcomes deterministas
+- Salidas (contratos)
+- GET /rates/vector?country&segment&time → RateVector + decision_id
+- POST /checkout/resolve-fees → breakdown + snapshot refs
+- POST /rates/simulate → impacto estimado (margen/conversión/riesgo)
+- Eventos para policy engine (gobernanza multi-país) y para finanzas (reserve health).
+- Fallbacks
+- last_known_good_version si:
+- latencia de decisión,
+- features faltantes,
+- safe mode activado.
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Métricas mínimas
+- rate_vector_publish_total{country,segment}
+- rate_policy_active_version{country}
+- safe_mode_active{country}
+- rate_changes_delta_abs_p95{country} (volatilidad)
+- conversion_rate{country,segment}
+- nps_estimate_proxy (tickets/quejas relacionadas a fees)
+- dispute_rate{country,segment}
+- chargeback_rate{country,segment}
+- reserve_inflow/outflow{country}
+- reserve_coverage_days{country} (salud de liquidez)
+- rollback_total{country}
+- Alertas
+- Dispute/chargeback sobre umbral → activar safe mode
+- Caída de conversión > X% tras cambio de policy (kill switch + rollback)
+- Volatilidad alta (max_delta violado)
+- Reserva baja (coverage_days bajo) → subir reserve_pct dentro de rangos o frenar earn del COL (según policy).
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- Toda decisión de rate debe guardar:
+- decision_id, policy_version, segment_key, explain_flags.
+- Cambios de floors/ceilings requieren aprobación SUPER_ADMIN y quedan en audit log con evidencia.
+- Snapshot por orden es inmutable (base para settlement/refund/dispute).
+- Export de auditoría: “qué versión afectó qué órdenes” por ventana temporal (no retroactivo).
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Gobernanza multi-país / Policy Engine: provee floors/ceilings, versionado, canary/rollback y “last good”.
+- Checkout Financial Engine: FeePolicyResolver toma RateVector y genera breakdown + locked_fee_structure.
+- Ledger/Settlement/Refunds/Disputes: split determinístico y reversiones desde snapshot; outcomes deterministas.
+- Auditoría WORM: cambios y decisiones críticos trazables.
+- Conflictos/incoherencias corregidas (motor unificado)
+- Dos motores parciales con reglas duplicadas → unificado: un solo RateVector canónico que compila a breakdown y ledger.
+- Cambios retroactivos rompen contabilidad → prohibido: snapshot inmutable por orden (locked_fee_structure).
+- Buyer-facing inestable vs distribución interna → separado: cap visible estable; earn/reserve internos dinámicos dentro de guardrails.
+- Sin reserva país (riesgo de liquidez) → incorporado: COUNTRY_RESERVE alimentado por diferencial cap - earn.
+- Sin gobernanza real de floors/ceilings → workflow formal CapFloorChangeRequest + aprobación SUPER_ADMIN + canary/rollback + last-good.
+- Inferencia (marcada): el documento describe el diseño y arquitectura objetivo, pero no fija endpoints exactos ni los valores numéricos de floors/ceilings por país; se definieron contratos mínimos y objetos de datos consistentes con los pilares explicitados (snapshot, versionado, guardrails, reserve ledger, canary/rollback, auditoría).

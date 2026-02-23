@@ -1,0 +1,249 @@
+# search · Transcripción integral desde `sistema-de-busqueda-260207_0312.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-busqueda-260207_0312.docx`
+- Dominio canónico asociado: `search`
+- Título detectado: Sistema de Búsqueda v2.0 (corregido y unificado)
+
+## Transcripción
+
+- Sistema de Búsqueda v2.0 (corregido y unificado)
+- Fuente de verdad: “Sistema: Búsqueda (Search)”.
+- Objetivo del rewrite: consolidar Búsqueda como un motor único, contextual, multi-país, con filtros invisibles (guardrails) obligatorios, ranking por etapas controlable (incluye curaduría auditada), trending/suggest deterministas, y compatibilidad estricta con Jerarquía, Contenido, Órdenes, Capacidad/Logística y Analítica.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Búsqueda es el sistema que devuelve resultados (productos/sellers/categorías/colecciones) en función de un SearchContext obligatorio, aplicando:
+- Query understanding (normalización, sinónimos, typos).
+- Filtros visibles (facets) + filtros invisibles (guardrails).
+- Ranking por etapas (retrieval + scoring).
+- Autocomplete (suggest) y “did you mean”.
+- Trending por ventanas temporales y segmentación geo.
+- Curaduría (merchandising) por Ops/Admin con auditoría y expiración.
+- Objetivos:
+- Contexto siempre: no existe búsqueda “global sin país/zona”.
+- No trolleo: si la zona está apagada, no aparecen resultados de esa zona.
+- Ranking real: señales reales (CTR, add-to-cart, purchase) + calidad seller + factibilidad logística + curaduría controlada.
+- Sugerencias y trending por contexto (country/hub/zone) y temporadas.
+- Coherencia con Server-Driven UI (Camaleón): configuración por país afecta tokenización, sinónimos, facets y experimentos.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Search API: /search, /suggest, /trending.
+- Indexación: OpenSearch/Elasticsearch como índice principal; Postgres como fuente de verdad.
+- Geo-filtro: hub/zone resueltos por lógica espacial y reflejados en el índice.
+- Caché Redis: queries frecuentes, trending, suggest, facets precomputadas.
+- Pipeline de eventos: search_impression/click/add_to_cart/purchase/zero_results → ranking + trending.
+- Herramientas de curaduría: boosts, pins, blocklist, spotlight con expiración y audit trail.
+- Excluye
+- Motor de Contenido/Catálogo (solo consume su estado “ACTIVE”, stock, tags, etc.).
+- Motor de Capacidad/Logística (solo consume “puede llegar a tiempo / está disponible” como guardrail).
+- Moderación/Trust completo (solo consume status/flags).
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Actores
+- BUYER: busca en su SearchContext.
+- SELLER: puede buscar (modo seller) pero no obtiene datos de otros sellers más allá de lo público.
+- COUNTRY_OPS_LEAD: curaduría por país/hub/zona (según permisos).
+- SUPER_ADMIN: curaduría global + taxonomía/sinónimos globales.
+- SYSTEM/BOT: indexación, scoring jobs, trending jobs.
+- 3.2 Permisos (mínimos)
+- search.read (buyer/seller)
+- search.merch.boost.manage (ops/admin)
+- search.merch.pin.manage (ops/admin)
+- search.merch.blocklist.manage (ops/admin)
+- search.dictionary.manage (ops/admin, por país)
+- search.trending.manage (admin, si se permite override)
+- search.index.rebuild (system/admin con break-glass si aplica)
+- 3.3 Guards (backend manda)
+- Cadena obligatoria:
+- Auth (si hay personalización; si anónimo, se autentica como “public session”)
+- Scope/Context Guard: SearchContext válido y completo (country/hub/zone + intent).
+- PolicyGuard: configuración por país (tokenización, sinónimos, facets permitidas, features).
+- Guardrails (filtros invisibles): status ACTIVE, zona ACTIVE, logística/tiempo, disponibilidad.
+- RBAC (solo para endpoints admin/ops de merchandising, con auditoría).
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 /search (Buyer)
+- Happy path
+- App resuelve SearchContext: country_id, hub_id, zone_id, delivery_intent (dirección/fecha/hora), ui_config_version.
+- /search?q=...&context=...&filters=...&sort=...
+- Search API aplica:
+- Normalización + sinónimos + fuzzy (si aplica).
+- Guardrails invisibles.
+- Retrieval + scoring + diversidad.
+- Responde con results + facets + suggest.did_you_mean/query_suggestions.
+- Edge cases
+- zone.status != ACTIVE (kill switch): devuelve resultados vacíos + mensaje/razón contextual (sin exponer internals) y no hace “fallback” a otra zona automáticamente (evita engaños).
+- Zero-results: activa “did you mean” si hay candidato > umbral.
+- Cambios rápidos (seller suspendido / producto pausado): invalidación de caché y deindexación; objetivo: cero “no comprables”.
+- 4.2 /suggest (Autocomplete)
+- Happy path
+- GET /suggest?q=...&context=...
+- Devuelve sugerencias en orden:
+- queries populares por zona/hub/país,
+- categorías,
+- sellers,
+- productos (si match claro),
+- did_you_mean opcional.
+- Edge cases
+- Usuario logueado: boost ligero por historial reciente (sin “creepy”); si anónimo: agregados por contexto.
+- 4.3 /trending
+- Happy path
+- GET /trending?scope=ZONE|HUB|COUNTRY&window=1H|24H|7D&category_id?
+- TrendingScore con decay por eventos ponderados (search/click/add_to_cart/purchase).
+- Edge cases
+- Temporadas/campañas: “seasonal trending” por campaña activa (policy/config).
+- Protección anti-gaming: límites por seller y penalizaciones por señales de abuso.
+- 4.4 Merchandising (Ops/Admin)
+- Happy path
+- Ops Lead define boost/pin por query o colección con expiración (ej. 48h).
+- Se audita: quién, cuándo, qué, alcance (country/hub/zone), expiración.
+- Search scoring aplica el override como capa controlada (no destruye orgánico).
+- Edge cases
+- Overrides vencidos se desactivan automáticamente.
+- Blocklist (términos/productos) no se permite sin razón y ticket interno (audit trail obligatorio).
+- 5) Reglas y políticas (límites, validaciones, caps)
+- 5.1 Contexto obligatorio (“filtro invisible”)
+- SearchContext mínimo:
+- country_id
+- hub_id
+- zone_id
+- delivery_intent (dirección/fecha/hora)
+- role_mode (buyer/seller)
+- ui_config_version
+- Regla dura: sin SearchContext completo → 400 (no “adivinamos” zona).
+- 5.2 Guardrails invisibles (siempre)
+- Aplican aunque el usuario no lo vea:
+- product.status = ACTIVE
+- seller.status = ACTIVE
+- zone.status = ACTIVE (o reglas de saturación)
+- country/hub/zone del SearchContext
+- cumplimiento logístico (“llega a tiempo” o se excluye/penaliza según regla)
+- Corrección clave: “% resultados no comprables” debe tender a 0 porque se filtra por zona/estado.
+- 5.3 Query Understanding (normalización + diccionario local)
+- Lowercase/trim/espacios.
+- Normalizar tildes para matching (conservar original para UI).
+- Tokenización por idioma configurable por país.
+- Diccionario de sinónimos por país (jerga local) versionable y server-driven.
+- 5.4 Typos / fuzzy / did-you-mean
+- Fuzzy match (edit distance) según longitud.
+- Trigram / edge n-grams para autocomplete.
+- “Did you mean” cuando zero_results y existe candidato > umbral.
+- 5.5 Ranking por etapas (robusto y controlable)
+- Stage A — Retrieval (candidatos):
+- BM25/lexical con campos ponderados: title^3, category^2, tags^2, seller_name^1.5, description^1
+- Hard filters (zona/activos/disponibilidad).
+- Stage B — Scoring (orden final):
+- Score total = combinación (pesos fijos versionados):
+- Relevancia textual
+- Popularidad (CTR, ATC, purchase con decay)
+- Calidad seller (rating, on-time, cancel rate, dispute rate)
+- Factibilidad logística (cumple “llega hoy/ventana”)
+- Precio & valor (ajuste vs distribución)
+- Freshness (boost moderado)
+- Curaduría Ops Lead (override controlado)
+- 5.6 Anti-abuso de ranking
+- Diversidad: max N resultados consecutivos por seller.
+- Penalización por cancelaciones/devoluciones/disputes perdidas.
+- Detección spam SEO: keyword stuffing, títulos repetidos.
+- 5.7 Sorts explícitos (si el usuario los pide)
+- RELEVANCE (default)
+- PRICE_ASC, PRICE_DESC
+- FASTEST_DELIVERY
+- TOP_RATED
+- TRENDING_NOW
+- 6) Modelo de datos (índice + configuración + auditoría)
+- 6.1 Search Index (OpenSearch/Elastic) — documento “ProductSearchDoc”
+- Campos mínimos (recomendados por el diseño):
+- Identidad: product_id, seller_id
+- Contexto: country_id, hub_ids[], zone_ids[] (o service_areas)
+- Texto: title, description, tags[], category_path[], seller_name
+- Estados: product_status, seller_status
+- Disponibilidad/capacidad: availability, lead_time_hours, cutoff_meta, next_available_window
+- Métricas: rating, review_count, on_time_score, cancel_rate, dispute_rate
+- Señales: ctr_7d, atc_7d, purchase_7d (con decay)
+- Merch: boost_rules[], pin_rank?, campaign_tags[]
+- Versiones: ui_config_version, policy_version
+- Inferencia: el documento no lista el schema exacto del índice, pero define campos operativos (lead_time, zona, status, señales) como inputs del ranking; por eso deben existir en el doc indexado. (Consistente con ranking por etapas + guardrails.)
+- 6.2 Diccionario local (sinónimos)
+- search_dictionary(country_id, version, synonyms_json, updated_by, updated_at)
+- Publicación por versión (rollback rápido).
+- 6.3 Merchandising overrides (auditables, con expiración)
+- search_merch_rules
+- rule_id, country_id, hub_id?, zone_id?
+- rule_type (BOOST|PIN|BLOCKLIST|SPOTLIGHT)
+- query_match (exact|prefix|regex controlado)
+- target_type (PRODUCT|SELLER|COLLECTION|CATEGORY)
+- target_id
+- weight_or_position
+- starts_at, ends_at
+- created_by, reason_code, created_at
+- Auditoría append-only para cada cambio.
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- 7.1 Eventos analíticos (señales de ranking + trending)
+- search_impression
+- search_click
+- add_to_cart
+- purchase
+- zero_results
+- 7.2 Jobs/Triggers
+- Reindex incremental por cambios en:
+- product.status / seller.status
+- stock/availability
+- lead_time/cutoff/capacidad
+- campañas/merch rules
+- Trending job por ventanas (1h/24h/7d) con decay.
+- 7.3 Idempotencia
+- Ingest de eventos: event_id único (dedupe).
+- Reindex: jobs deterministas por watermark (evita duplicidad en rollups).
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- 8.1 Postgres + PostGIS (fuente de verdad)
+- Geo-resolución de zone/hub → index y guardrails.
+- 8.2 Contenido/Catálogo
+- Consume product.status ACTIVE, tags, categorías, assets, flags de moderación.
+- 8.3 Capacidad/Logística
+- Consume lead_time_max_hours, “llega a tiempo para ventana”, availability.
+- Regla: si no llega a tiempo → se excluye o se penaliza según policy.
+- 8.4 App Camaleón (server-driven)
+- ui_config_version influye en:
+- idioma/tokenización,
+- facets visibles,
+- módulos (ej. “Último minuto” basado en lead_time).
+- 8.5 Redis Cache
+- Caché por key = hash(query + context + filters + sort).
+- Trending/suggest “hot lists”.
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Logs
+- query, context(country/hub/zone), filters, sort, latency_ms
+- result_count, zero_results, cache_hit
+- ranking_stage_debug (solo internal, muestreado)
+- Métricas KPI (del doc)
+- Latencia p95 de /search
+- CTR (click/impression)
+- Add-to-cart rate
+- Purchase conversion desde search
+- Zero-result rate
+- % resultados “no comprables” (debe ~0)
+- Alertas
+- Zero-result rate sube (diccionario roto / index stale).
+- “No comprables” > umbral (guardrail roto).
+- Latencia p95 sube (cluster/caché).
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- 10.1 Curaduría siempre auditada
+- Toda intervención manual:
+- requiere RBAC Ops/Admin,
+- se registra con who/when/what/scope/expiry/reason.
+- 10.2 Privacidad
+- /suggest y personalización: solo boosts “ligeros” y agregados por contexto; no exponer historial sensible en payload.
+- Logs sin PII; usar IDs internos/hashed si hace falta.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Usuarios/Contexto: SearchContext incluye delivery_intent + role_mode.
+- Jerarquía/Geo: zone.status ACTIVE filtra todo; si kill switch → no aparece nada.
+- Contenido: product.status ACTIVE, tags/categorías/colecciones y moderación.
+- Capacidad/Logística: “llega a tiempo” como guardrail o señal de score.
+- Analítica: eventos search_impression/click/atc/purchase/zero_results alimentan trending y ranking.
+- Conflictos/incoherencias corregidas (dentro de Búsqueda)
+- Búsqueda sin contexto → eliminado: SearchContext obligatorio, validado.
+- Mostrar cosas no comprables → eliminado: guardrails invisibles (status/zone/logística/availability).
+- Curaduría “a ojo” sin control → eliminado: merchandising con expiración + audit trail.
+- Trending manipulable → corregido: pesos fijos versionados + decay + segmentación obligatoria + anti-abuso.
+- Ranking opaco/inestable → corregido: ranking por etapas con señales definidas y pesos versionados.

@@ -1,0 +1,212 @@
+# loyalty · Transcripción integral desde `sistema-de-lealtad-260207_0817.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-lealtad-260207_0817.docx`
+- Dominio canónico asociado: `loyalty`
+- Título detectado: Sistema de Lealtad v2.0 (AP + FS “Fee Shields” + Ledger-first) — corregido y unificado
+
+## Transcripción
+
+- Sistema de Lealtad v2.0 (AP + FS “Fee Shields” + Ledger-first) — corregido y unificado
+- Fuentes de verdad:
+- “Aventide Version 1.1 — Sistema #10 Lealtad y Promos”
+- “Fases de Desarrollo v1.1 — Loyalty (ledger-first) + eventos + modelo de datos”
+- Integración obligatoria con Disputas/Refunds (reversión)
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Lealtad es un sistema de incentivos para buyers basado en dos monedas:
+- AP (Aventide Points): puntos “de juego”, no transferibles, sin cashout, con expiración.
+- FS (Fee Shields / Fee Credits): crédito “cash-like” de bajo valor que solo reduce o elimina el Platform Fee en checkout (y puede llevarlo a 0), con caps y expiración.
+- Objetivos:
+- Subir recurrencia y retención sin romper la economía del marketplace: FS jamás toca seller net, ops fee, taxes ni processing.
+- Ser auditable y reversible: ledger append-only por AP/FS con reversión ante refund/chargeback/disputa.
+- Multi-país: earn rates, conversión, caps, expiraciones, gating y presupuesto global de FS por país versionados (policy engine).
+- Anti-abuso: gating y señales (trust, chargebacks, device clusters) para frenar farming.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Earn AP por órdenes elegibles; acreditación después de ORDER_COMPLETED + espera sin dispute/refund (default 48h).
+- Redeem AP → convertir a FS con una tasa fija (policy) y caps por usuario/mes y por país.
+- Aplicación de FS en checkout como Fee Credit con límite: max_applied = platform_fee_amount (nunca más).
+- Expiraciones determinísticas por lote/ventana (AP por lote; FS por ventana/mes).
+- Reversión automática por cancel/refund/chargeback/disputa perdida.
+- Excluye
+- Cupones seller-funded (es Promos del seller; aquí solo se integra para calcular EOV/earn).
+- Créditos internos no-FS (p. ej. “Buyer Store Credit / Support Credit”) como producto separado de lealtad; solo se respeta la separación de tipos (no mezclar).
+- 3) Actores y permisos (RBAC) + guards
+- Actores
+- BUYER: gana AP, canjea AP→FS, aplica FS, ve historial y expiraciones.
+- SYSTEM/BOT: calcula earn, ejecuta conversión, aplica caps, expira lotes, revierte.
+- SUPER_ADMIN / COUNTRY_OPS_LEAD (scoped): configura policy versionada por país y presupuestos/caps; observa métricas. (Config por país está explícita como server-driven).
+- TRUST & SAFETY: consume señales de abuso y gatilla bloqueos (gating).
+- Permisos (mínimo)
+- loyalty.account.read.own
+- loyalty.redeem.ap_to_fs (buyer; con gating)
+- loyalty.fs.apply (checkout; system valida)
+- loyalty.policy.read (admin/ops)
+- loyalty.policy.write (super admin, scoped por país)
+- loyalty.ledger.read (finance/audit)
+- Guards (backend manda)
+- Auth
+- OwnershipGuard (buyer_id)
+- PolicyGuard (country/policy_version activa)
+- MoneyGuard (FS solo contra Platform Fee; clamp duro)
+- Risk/Trust Guard (para canje FS: phone verificado, trust score mínimo, sin chargebacks 90d)
+- AuditGuard (toda mutación crea ledger entry append-only)
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Earn AP (ganar puntos)
+- Happy path
+- Orden llega a ORDER_COMPLETED.
+- Se calcula EOV (Eligible Order Value):
+- EOV = (items_subtotal - seller_coupon_discount) + delivery_fee_if_applicable
+- Excluye: taxes, platform_fee, ops_fee, processing_fee.
+- Se calcula AP a otorgar con earn rate recomendado: 150 AP por $1 de EOV (policy).
+- Hold window anti-abuso: acreditar luego de 48h sin dispute/refund (configurable por país).
+- Se crea ledger entry LOYALTY_POINTS_EARNED idempotente por order_id + policy_version.
+- Edge cases
+- Refund/disputa dentro de 48h: no se aprueba earn; si ya se acreditó, se revierte (ver 4.5).
+- Orden completada pero luego chargeback: reversión obligatoria (ver 4.5).
+- 4.2 Misiones / gamificación (earn adicional con caps)
+- Soporta misiones “baratas” con caps: streak semanal, explorador por categoría, review verificada (con caps).
+- Regla dura: todo earn adicional también pasa por ledger y caps para no romper presupuesto.
+- 4.3 Redeem AP → FS (conversión)
+- Happy path
+- Buyer inicia canje.
+- Conversión default: 75,000 AP = $1.00 en FS (policy).
+- Se valida gating para FS: phone verificado, trust score ≥ 40, sin chargebacks 90 días (policy).
+- Se aplican caps:
+- Sin membresía: máx $2/mes en FS
+- Con Aventide+: máx $6/mes en FS
+- Ledger: LOYALTY_POINTS_REDEEMED_TO_FEE_CREDIT (AP–, FS+).
+- Edge cases
+- Excede cap mensual de FS: bloquear o diferir/convertir según policy (la documentación indica que debe elegirse 1 regla por país; no mezclar).
+- Buyer con riesgo: permitir canje AP a “cofres” (recompensa no-cash) aunque FS esté bloqueado.
+- 4.4 Aplicación de FS en checkout (Fee Credits)
+- Happy path
+- Checkout calcula fees (incluyendo Platform Fee).
+- Toggle “Usar Fee Credits” en UI.
+- Backend aplica FS con clamp duro:
+- fs_applied = min(fs_balance_available, platform_fee_amount)
+- y genera evento FEE_CREDIT_APPLIED (max_applied = platform_fee_amount).
+- El motor financiero respeta orden de cálculo: FS ocurre después de Platform Fee, y no toca non-discountable (ops/processing/taxes).
+- Edge cases
+- Platform Fee = 0: fs_applied = 0 (no puede aplicarse a nada más).
+- Reintento de checkout: idempotencia por checkout_id para no “gastar FS dos veces”.
+- 4.5 Reversión (refund/chargeback/disputa)
+- Regla dura: cancel/refund/chargeback/disputa perdida revierte AP y ajusta FS.
+- Casos:
+- LOYALTY_POINTS_REVOKED si cancel/refund invalida la elegibilidad.
+- Si FS ya fue gastado y luego el caso revierte: se registra un ajuste negativo y se bloquea uso de FS hasta cubrir saldo o se absorbe como gasto de marketing (policy por país; elegir 1 por país).
+- 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+- 5.1 Principios duros (para que no rompa el negocio)
+- Cupón seller-funded reduce net del seller.
+- Lealtad del buyer NO toca el net del seller.
+- FS solo contra Platform Fee. Nunca taxes, processing, ops fee ni seller net.
+- 5.2 EOV (base de earn) — fórmula oficial
+- EOV = (items_subtotal - seller_coupon_discount) + delivery_fee_if_applicable
+- Excluye: taxes, platform_fee, ops_fee, processing_fee.
+- 5.3 Earn timing (anti-disputa)
+- Acreditar AP: ORDER_COMPLETED + 48h sin dispute/refund (configurable).
+- 5.4 Conversión AP→FS (policy)
+- Default: 75,000 AP = $1 FS.
+- Earn rate recomendado: 150 AP por $1 de EOV.
+- Control de costo (“chequeo 0.5%”): caps hacen que el costo sea pequeño.
+- 5.5 Caps (control de costo)
+- FS cap mensual: sin membresía $2/mes; con Aventide+ $6/mes.
+- Cap global país para FS (budget), y caps por segmento/usuario (policy).
+- 5.6 Expiración
+- AP: 18 meses después de ganarse (por lote).
+- FS: fin de mes recomendado o 90 días.
+- 5.7 Anti-abuso mínimo
+- Rate limit intentos de redención/aplicar beneficios.
+- “first-time buyer” requiere señales (teléfono verificado + consistencia) para promos relacionadas.
+- Señales de farming: múltiples cuentas por device/IP; alta correlación cupones + devoluciones/chargebacks.
+- Gating FS: phone verificado, trust ≥ 40, sin chargebacks 90d.
+- 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+- 6.1 loyalty_accounts (estado materializado)
+- loyalty_accounts (1 por buyer)
+- buyer_id (PK)
+- ap_balance
+- fs_balance
+- last_earned_at
+- caps_state_monthly (JSON: used_fs_this_month, month_key, etc.)
+- status_flags (fs_blocked, risk_hold, etc.)
+- 6.2 loyalty_ledger (append-only, fuente de verdad)
+- loyalty_ledger
+- entry_id (UUID)
+- buyer_id
+- entry_type (EARN, REDEEM, APPLY, EXPIRE, REVOKE, NEG_ADJUSTMENT)
+- amount_ap (+/-)
+- amount_fs (+/-)
+- order_id (nullable)
+- checkout_id (nullable; para apply idempotente)
+- policy_version
+- ts_utc
+- reversal_of_entry_id (nullable)
+- reason_code (refund/dispute/chargeback/misión/etc.)
+- Índices:
+- (buyer_id, ts_utc desc)
+- unique por idempotencia:
+- EARN: (order_id, policy_version, entry_type)
+- APPLY: (checkout_id, entry_type)
+- 6.3 loyalty_batches (expiración determinística)
+- loyalty_batches
+- Para AP: lotes con earned_at, expires_at, amount_remaining
+- Para FS: ventanas (fin de mes o 90 días) con expires_at, amount_remaining
+- 6.4 order_promo_snapshot (compatibilidad con finanzas/BI)
+- order_promo_snapshot por orden (obligatorio)
+- coupon_id, discount_amount, coupon_policy_version
+- buyer_membership_active, membership_benefits_applied
+- AP_earned (y multiplicadores/motivos)
+- FS_applied + saldos antes/después
+- buyer_tier, seller_tier
+- campaign_attribution
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Taxonomía mínima (obligatoria)
+- LOYALTY_POINTS_EARNED (solo en ORDER_COMPLETED)
+- LOYALTY_POINTS_REVOKED (si cancel/refund)
+- LOYALTY_POINTS_REDEEMED_TO_FEE_CREDIT
+- FEE_CREDIT_APPLIED (con max_applied = platform_fee_amount)
+- FEE_CREDIT_EXPIRED
+- Idempotencia (reglas)
+- Earn AP: idempotente por order_id + policy_version.
+- Apply FS: idempotente por checkout_id y limitado por platform_fee_amount.
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Motor financiero / Pagos
+- Respeta orden de cálculo y restricción: FS solo descuenta Platform Fee; ops/processing non-discountable.
+- Órdenes
+- ORDER_COMPLETED dispara earn AP y arranca ventana 48h.
+- Soporte / Disputas
+- Refund/chargeback/disputa perdida → reversión de AP/FS.
+- Trust/Moderation
+- Señales de abuso (coupon abuse / referral farming / clusters) afectan gating de FS.
+- Analytics
+- Facts: fact_loyalty (emitido/consumido/caducado) y fact_promos (cupones/costo).
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Métricas mínimas del sistema
+- ap_earned_total, ap_redeemed_total
+- fs_granted_total, fs_applied_total, fs_expired_total
+- breakage_rate
+- fs_cap_blocked_count (por país/segmento)
+- loyalty_reversal_count (por refund/chargeback/disputa)
+- Alertas (operativas/abuso)
+- “Coupon abuse spike” (cupones + devoluciones/chargebacks)
+- “Benefits farming” (múltiples cuentas por device/IP/payment fingerprint)
+- Spike de loyalty_reversal_count (posible fraude o bug de disparadores)
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- Ledger append-only para AP/FS (emitido/consumido/caducado/revertido) con link a order_id y policy_version.
+- Aplicación de FS siempre clamp a Platform Fee (no puede excederlo).
+- Gating FS y rate limiting en redención/aplicación como medidas anti-abuso obligatorias.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Pagos / Motor financiero: “muralla” non-discountable; FS solo Platform Fee.
+- Promos (cupones seller-funded): EOV descuenta seller_coupon_discount; cupones bajan net del seller, no de platform.
+- Órdenes: ORDER_COMPLETED como gatillo, y ventana 48h sin dispute/refund.
+- Disputas/Refunds/Chargebacks: reversión de AP/FS y ajustes negativos si FS fue gastado.
+- Analítica: fact_loyalty para costo/uso/expiración y cohortes.
+- Conflictos/incoherencias corregidas (dentro de Lealtad)
+- “Lealtad descuenta el total” → corregido: FS solo contra Platform Fee; clamp max_applied = platform_fee_amount.
+- Impactar seller net → corregido: lealtad no toca seller; cupón del seller sí (seller-funded).
+- Earn inmediato que incentiva fraude → corregido: acreditación post COMPLETED + 48h sin dispute/refund.
+- Sin auditabilidad → corregido: ledger-first append-only + order_promo_snapshot por orden.
+- No reversión ante refund/chargeback → corregido: eventos REVOKED/ajuste negativo y bloqueo según policy país.

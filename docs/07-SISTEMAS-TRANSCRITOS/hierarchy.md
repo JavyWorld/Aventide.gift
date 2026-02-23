@@ -1,0 +1,224 @@
+# hierarchy · Transcripción integral desde `sistema-de-jerarqua-260206_2015.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-jerarqua-260206_2015.docx`
+- Dominio canónico asociado: `hierarchy`
+- Título detectado: Sistema de Jerarquía v2.0 (corregido y unificado)
+
+## Transcripción
+
+- Sistema de Jerarquía v2.0 (corregido y unificado)
+- Fuente de verdad: “Sistema de Jerarquías (RBAC + Scope geográfico + Workflows)” y secciones RBAC/Guards del documento del proyecto.
+- Problema principal detectado: contradicción sobre quién “define” zonas (polígonos). La auditoría lo marca como conflicto estructural: Jerarquías decía que el Ops Lead define zonas, pero en Geo/Paneles se define que SuperAdmin crea/edita Countries/Hubs/Zones. Se fija una sola verdad.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: El Sistema de Jerarquía es el conjunto de reglas y mecanismos que determinan quién puede hacer qué y dónde (territorio) en Aventide Gift, combinando:
+- RBAC: roles → permisos granulares.
+- Scope territorial: país / hub / zona (y variantes).
+- Policy Engine: condiciones por país/feature flags (App Camaleón).
+- Workflows: aprobación y operaciones con auditoría y separación de poderes.
+- Objetivos:
+- Evitar “permisos improvisados” en producción.
+- Garantizar enforcement en backend (la UI solo refleja, no autoriza).
+- Soportar operación multi-país y paneles Global vs Regional OS con rutas scoping.
+- Ser auditable: cambios de rol/scope/estados críticos quedan registrados con who/when/what/why.
+- 2) Alcance
+- Incluye
+- Jerarquía territorial: Country → Hub → Zone como estructura operativa.
+- Jerarquía de autoridad: SuperAdmin define el “mundo”; Country Ops Lead opera el interruptor operacional.
+- Claims de seguridad y guard chain canónica: Auth → Role → Scope → Permission → Policy.
+- Workflows donde la jerarquía se aplica: asignación geo, onboarding seller, operaciones de zona, paneles.
+- Excluye
+- Autorización “solo por UI”.
+- Cambios financieros manuales por usuarios operativos (Soporte/Ops) fuera de outcomes/policies (separación de poderes ya definida).
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Una sola verdad sobre “quién define zonas” (conflicto corregido)
+- Verdad unificada (obligatoria):
+- SUPER_ADMIN: crea/edita Countries/Hubs/Zones (polígonos base) y publica cambios.
+- COUNTRY_OPS_LEAD (COL): NO crea/elimina zonas base; SÍ puede cambiar estado operativo de zona (zone.update_status) y crear exclusion_zones dentro de su país (si está habilitado).
+- Esto elimina la contradicción reportada por auditoría.
+- 3.2 Roles oficiales (catálogo unificado)
+- Hay dos “capas” de roles en los docs: (A) roles mínimos operativos (Jerarquías) y (B) roles internos de administración (Global Panel). Se unifican así:
+- A) Roles marketplace (externos)
+- BUYER
+- SELLER (puede coexistir con BUYER en una misma cuenta “dual-mode”).
+- B) Roles internos (operación y control)
+- Global
+- SUPER_ADMIN (global owner): define estructura territorial, reglas macro, integraciones, break-glass.
+- (Opcional, según Global Panel) STAFF_ADMIN / FINANCE_ADMIN / RISK_ADMIN / SRE_ADMIN como separación por dominios (sin “acceso total” por defecto; se aterriza por permisos granulares).
+- Regional
+- COUNTRY_OPS_LEAD (scoped): opera dentro de su país, cambia estado de zonas, gestiona capacidad, aprueba sellers, opera Studio/Camaleón según permisos.
+- (Opcional) ANALYST (scoped): solo lectura de capas/métricas.
+- Control / soporte
+- SUPPORT_AGENT (scoped): gestiona casos/disputas con outcomes predefinidos; sin “meter números a mano”.
+- FINANCE_AUDITOR (scoped o global): lectura de ledger/reportes/evidencia; sin permisos operativos.
+- MODERATOR (scoped): acciones de Trust & Safety dentro de policies.
+- SYSTEM/BOT: servicios internos con permisos mínimos.
+- 3.3 Permisos (namespaces unificados)
+- Los docs sugieren namespaces para permisos (global/geo/policy/cms/finance/risk/support/moderation/analytics/sre/backups/integrations). Se fijan como estándar.
+- Ejemplos mínimos críticos (no exhaustivo):
+- geo: geo.country.create, geo.hub.create, zone.create/update/delete (solo SuperAdmin), zone.update_status (COL).
+- exclusion zones: exclusion_zone.create/update/disable (COL scoped).
+- seller onboarding: seller.approve, seller.reject (COL).
+- cms/camaleón: cms.theme.edit, cms.home.edit, cms.time_machine.publish (según policy país y rol).
+- finance: finance.ledger.read (auditor/finance admin), finance.payouts.reconcile (finance admin).
+- support: support.case.manage, support.dispute.apply_outcome (support agent).
+- sre: sre.kill_switch.trigger (solo SRE_ADMIN/SUPER_ADMIN, con break-glass si aplica).
+- 3.4 Claims y Guards (canónico y obligatorio)
+- Claims mínimos en JWT/sesión (no negociable):
+- roles: [...]
+- permissions: [...] (granulares)
+- scopes: { countries[], hubs[]?, zones[]? }
+- security_flags: { has_2fa, risk_level, break_glass_active, ... }
+- Orden de guards (backend manda):
+- AuthGuard: sesión válida
+- RoleGuard: rol permitido
+- ScopeGuard: countryCode ∈ scopes.countries (y filtros hub/zone si aplica)
+- PermissionGuard: permiso requerido por endpoint/acción
+- PolicyGuard: Policy Engine / feature enablement por país (Camaleón)
+- Regla dura adicional (protección territorial):
+- APIs de mapas/tiles y operaciones requieren country_code y se filtran por scope; además se recomienda enforcement a nivel query (RLS / filtros server-side), no solo UI.
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 “Sorting Hat” (asignación territorial)
+- Seller (estático)
+- Seller registra ubicación/pin.
+- Geo engine hace Point-in-Polygon → asigna country/hub/zone.
+- Se fija scope inicial para la solicitud (application) y luego para el seller aprobado.
+- Edge cases
+- Zona inexistente o fuera de cobertura → lead a waitlist.
+- Zona OFF/sin capacidad → waitlist prioritaria.
+- Buyer (dinámico)
+- Buyer puede estar en un país pero comprar para otro: su “contexto” cambia por intención de envío (SearchContext).
+- Implicación de jerarquía: scopes del buyer no habilitan operaciones internas; el “scope” aquí es contexto de compra, no permisos administrativos.
+- 4.2 Onboarding Seller (workflow con jerarquía)
+- Usuario activa “Modo Vendedor” (dual-mode).
+- Ubicación → valida estado de zona/cobertura.
+- KYC dinámico por país → estado PENDING_APPROVAL.
+- COL revisa en Regional OS (Kanban) y aprueba/rechaza.
+- Si aprueba: se asigna rol SELLER + scope (hub/zone asignados).
+- Edge cases / controles
+- Si la zona cambia a OFF durante el proceso: la solicitud queda bloqueada / re-ruteada a waitlist (no se aprueba a un seller en zona no operativa). Consistente con regla dura de zona activa.
+- 4.3 Operación diaria del país (COL)
+- COL navega rutas scoping: /:countryCode/ops/... (Regional OS).
+- Ve todo el país (zonas ON/OFF visibles).
+- Cambia estado de zona: ACTIVE / OFF / SATURATED / KILL.
+- Sistema exige razón y audita el cambio.
+- Edge cases
+- COL intenta crear/eliminar zonas base → denegado por PermissionGuard (no tiene zone.create/delete).
+- Cambio a KILL/EMERGENCY_OFF requiere control reforzado (ver break-glass abajo).
+- 4.4 Definición territorial (SuperAdmin)
+- SuperAdmin crea/edita Countries/Hubs/Zones (polígonos en PostGIS).
+- Publica cambios (auditables por entidad).
+- 4.5 Zonas de exclusión (COL, scoped)
+- COL dibuja polígono de exclusión dentro de su país.
+- Activa/desactiva exclusión (no borra histórico).
+- Enforcements: bloquear registro de seller y órdenes si punto cae dentro (evaluación en contexto/guards).
+- 5) Reglas y políticas (límites, expiraciones, validaciones)
+- 5.1 Regla dura: “Backend manda”
+- La UI oculta acciones, pero no autoriza. El servidor valida siempre con claims + guards.
+- 5.2 Regla dura: Scope obligatorio
+- Si no existe country_id/hub_id aplicable, el permiso es inválido.
+- 5.3 Separación de poderes (Soporte / Finanzas / Ops)
+- Soporte: sin ejecución financiera manual; solo outcomes.
+- Finanzas/Auditoría: lectura o acciones financieras específicas; sin operación territorial.
+- Ops Lead: opera status/capacidad; no “redibuja el mundo”.
+- 5.4 Break-glass (acciones críticas)
+- Acciones críticas (restore backup, rotate keys, override crítico, force release escrow, kill-switch global, etc.) requieren:
+- re-auth con 2FA,
+- razón obligatoria,
+- expiración corta (ej. 15 min),
+- logging extra.
+- Suposición: el “kill switch regional” normal (zone.update_status a KILL) puede requerir o no break-glass según severidad; los docs fijan break-glass para acciones críticas pero no enumeran exactamente cuáles a nivel zona. Se implementa policy-driven: policy.break_glass_required(action, severity, country_code). (Suposición consistente con PolicyGuard + enfoque de auditoría fuerte.)
+- 6) Modelo de datos (tablas, campos, índices, relaciones)
+- 6.1 Entidades territoriales
+- countries(id, iso_code, name, …)
+- hubs(id, country_id, name, …)
+- zones(id, country_id, hub_id, name, geom, status, priority, created_by, created_at, …)
+- Zone.status (operación):
+- CREATED_INACTIVE, ACTIVE, OFF/PAUSED, SATURATED, EMERGENCY_OFF/KILL
+- Regla de ownership (corrección):
+- zones.created_by_role debe ser SUPER_ADMIN (o servicio autorizado) para zonas base.
+- Para “exclusion zones”, tabla separada: exclusion_zones(...) con created_by_role = COUNTRY_OPS_LEAD y FK a country.
+- 6.2 Identidad interna / autorización
+- internal_users(id, email, …, status)
+- roles(id, key)
+- permissions(id, key, namespace)
+- role_permissions(role_id, permission_id)
+- user_roles(user_id, role_id, assigned_by, assigned_at, reason)
+- user_scopes(user_id, scope_type, scope_id, assigned_by, assigned_at, reason)
+- scope_type: COUNTRY|HUB|ZONE
+- Nota: Los docs describen claims en JWT, pero no el esquema físico. Este modelo se alinea con “roles + scopes + permissions[]” y auditoría obligatoria.
+- 6.3 Auditoría (append-only)
+- audit_logs(id, ts, actor_type, actor_id, actor_role, action, resource_type, resource_id, scope_country, scope_hub, scope_zone, diff, reason, request_id, trace_id, metadata)
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- Aunque Jerarquías no define explícitamente bus/cola, el proyecto usa workers/colas para procesos críticos en general. (Inferencia consistente con arquitectura del proyecto, pero aquí solo se definen eventos del módulo Jerarquía.)
+- 7.1 Eventos de autorización (dominio Jerarquía)
+- auth.role_assigned (user_id, role, by, reason)
+- auth.role_revoked
+- auth.scope_assigned (user_id, country/hub/zone, by, reason)
+- auth.scope_revoked
+- geo.zone_status_changed (zone_id, old_status, new_status, by, reason)
+- geo.exclusion_zone_changed
+- security.break_glass_started/ended
+- 7.2 Idempotencia
+- Todos los comandos críticos deben tener:
+- idempotency_key (por request)
+- dedupe_key por acción (ej. user_id+role+assigned_at_bucket o zone_id+new_status+ts_bucket)
+- Resultado exigido: un cambio no puede duplicarse por reintentos; auditoría registra una sola verdad por acción.
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- 8.1 Integración con App Camaleón / PolicyGuard
+- PolicyGuard debe consultar si el feature/acción está habilitada para el país (config server-driven).
+- Ejemplo:
+- policy.is_enabled(country_code, "ops.studio")
+- policy.is_enabled(country_code, "geo.exclusion_zones")
+- 8.2 Integración con Geo Core (scope territorial)
+- Punto-en-polígono para asignación Seller (sorting hat).
+- Middleware/regla dura: si Zone.Status != ACTIVE → bloquear compra (“Zone Suspended”).
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Logs (estructurados)
+- Campos mínimos para operaciones jerárquicas:
+- actor_id, actor_role
+- country_code, hub_id, zone_id
+- permission_required, granted/denied, deny_reason
+- break_glass_active
+- request_id, trace_id
+- resource_type, resource_id
+- diff (sanitizado) y reason (obligatorio en cambios críticos)
+- Métricas
+- auth_denied_total{reason,country}
+- break_glass_sessions_total{country}
+- zone_status_changes_total{from,to,country}
+- scope_mismatch_total{country}
+- policy_guard_denied_total{feature,country}
+- Alertas
+- Spike en auth_denied_total por país (posible mala config de scopes/permisos).
+- Uso inusual de break-glass.
+- Cambios frecuentes de EMERGENCY_OFF/KILL por país (operación inestable o abuso).
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- 10.1 Auditoría innegociable
+- Todo cambio de:
+- rol,
+- scope,
+- permisos efectivos,
+- estado de zona,
+- activación de exclusiones,
+- inicio/fin de break-glass
+- debe producir un evento de auditoría con who/when/what/why.
+- 10.2 Controles de acceso
+- Principio de mínimo privilegio.
+- Accesos de lectura sensible (p.ej. evidencia) deben quedar trazados (consistente con FINANCE_AUDITOR read-only y auditoría).
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Dependencias directas que el Sistema de Jerarquía debe respetar:
+- Geo/Territorio: Country/Hub/Zone y estados; reglas de bloqueo por zona no activa.
+- Paneles (Global vs Regional OS): rutas con /:countryCode/ops/* y guards canónicos.
+- App Camaleón / Policy Engine: PolicyGuard controla features por país.
+- Onboarding seller: flujo PENDING_APPROVAL → approve/reject por COL; asignación geo.
+- Conflictos detectados (y cómo quedan resueltos)
+- Quién define zonas (polígonos)
+- Conflicto reportado por auditoría.
+- Resolución: SuperAdmin crea/edita zones base; Ops Lead solo zone.update_status + exclusion_zones.
+- Roles “mínimos” vs “roles internos Global Panel”
+- Resolución: se modelan como catálogo único con permisos granulares; roles “admin” se expresan como bundles de permisos (no como superpoder implícito).
+- Si el siguiente sistema a redefinir es Geo/Territorio, la primera corrección ya quedó preparada aquí: “zona base ≠ exclusión”, con ownership y permisos distintos (esto evita que operación “redibuje el mundo” y rompe menos el scope).

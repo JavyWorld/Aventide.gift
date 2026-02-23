@@ -1,0 +1,178 @@
+# users · Transcripción integral desde `sistema-de-usuarios-260206_2328.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-usuarios-260206_2328.docx`
+- Dominio canónico asociado: `users`
+- Título detectado: Sistema de Usuarios v2.0 (corregido y unificado)
+
+## Transcripción
+
+- Sistema de Usuarios v2.0 (corregido y unificado)
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Sistema responsable de identidad unificada, autenticación, sesiones/JWT, perfil + direcciones, roles/permisos (RBAC/ABAC), contexto multi-país (Buyer dinámico / Seller estático por geo), ciclo de vida (suspensión/borrado/archivo) y señales de confianza integradas con entrega/auditoría.
+- Objetivos:
+- Una sola cuenta para Buyer/Seller (modo dual), sin duplicar identidades.
+- Autorización estricta por claims y middleware (no por UI).
+- Contexto geo-operativo consistente: Seller estático por “sorting hat” y Buyer dinámico por “Entregar en…”.
+- Privacidad defendible (Admirador Secreto + Trust Badge) sin perder seguridad operativa.
+- Borrado/retención coherente: crypto-shredding para perfil/marketing, pero NO para ledger/AML; usar DELETED_PENDING_ARCHIVE + bóveda fiscal.
+- Auditoría inmutable (Black Box/WORM) para identidad y escaladas: cambios de RBAC, impersonation, overrides.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Auth Service federado (Firebase Auth o Auth0) + login Google/Apple/teléfono (WhatsApp Auth).
+- Backend mantiene tabla users y emite JWT con claims de rol/permisos/scope (modelo de sesión unificado).
+- Perfil: nombre, contactos, preferencias, direcciones múltiples.
+- Geo-context: POST /context/resolve para derivar country/hub/zone/status desde dirección/coords/intención.
+- Onboarding Seller: wizard + KYC dinámico por país + aprobación Ops Lead.
+- Estados de cuenta + suspensión/restricción + borrado diferenciado.
+- Integración con App Camaleón (Server-Driven UI) para UI profile por país/hub/zona/rol.
+- Excluye
+- Gestión de pagos/ledger (solo se integra a nivel de identidad/retención).
+- Moderación/reputación como sistema completo (solo puntos de acople: Trust Badge, señales).
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Roles base (catálogo mínimo coherente)
+- BUYER: compra, confirma recepción, reporta incidencias.
+- SELLER: catálogo, disponibilidad, cumplimiento, cobro.
+- COUNTRY_OPS_LEAD / PUBLISHER: opera un país (onboarding sellers, compliance operativo, calidad).
+- SUPPORT_AGENT: tickets/disputas/moderación (según permisos).
+- SUPERADMIN: configura reglas globales, países, accesos, auditoría.
+- 3.2 Reglas de visibilidad / alcance (no negociables)
+- Seller ve solo lo suyo (nunca finanzas globales).
+- Ops Lead ve solo su país.
+- SuperAdmin ve/configura todo, todo auditado.
+- 3.3 Claims y Guards (cadena canónica)
+- Claims mínimos en JWT:
+- sub (user_id interno)
+- roles[]
+- permissions[] (granular)
+- scopes (countries/hubs/zones para internos; para buyer es contexto, no scope de admin)
+- session_flags (2FA, risk level, break-glass, etc.)
+- Base: “rol viaja en JWT” + backend aplica middleware por permiso.
+- Orden de enforcement (backend):
+- Auth (token válido)
+- Role/Permission middleware (RBAC)
+- Scope guard (country/hub/zone, cuando aplica)
+- Policy guard (habilitación por país/feature flags)
+- Reglas duras operativas (ej. zona activa, anti-abuso, etc.)
+- Corrección clave de coherencia (heredada de Jerarquía):
+- SuperAdmin crea/edita countries/hubs/zones; Ops Lead solo zone.update_status + exclusion_zones.
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Registro/Login unificado (Smart Login)
+- Happy path
+- Usuario elige: Google / Apple / Teléfono (WhatsApp Auth).
+- Auth Service (Firebase/Auth0) valida identidad.
+- Backend crea/actualiza users y emite JWT con claims de rol (inicial BUYER).
+- App entra directo en modo comprador (no fuerza decisión seller).
+- Edge cases
+- Detección silenciosa de país por IP/GPS (si permite) para country_code por defecto; si falla, selección manual.
+- Riesgo/abuso: rate limiting y bloqueos temporales se aplican en edge/app layer (coherente con perímetro/WAF/rate limit).
+- 4.2 Buyer: contexto dinámico por “Entregar en…”
+- Happy path
+- En Home/Checkout, Buyer elige “Entregar en: [Dirección]”.
+- Backend resuelve contexto geo: hub/zone/status.
+- Si zona operativa, habilita navegación/checkout para ese contexto.
+- Edge cases
+- Zona no operativa: UI muestra sin cobertura/zona apagada.
+- Regla dura backend en compra: si Zone.Status != ACTIVE → error “Zone Suspended”.
+- 4.3 Seller: contexto estático por ubicación del negocio (“Sorting Hat”)
+- Happy path
+- Usuario activa “Modo Vendedor” en Perfil → inicia wizard.
+- Coloca pin del negocio; backend hace Point-in-Polygon (PostGIS).
+- Si zona activa: continúa a KYC dinámico por país.
+- Estado PENDING_APPROVAL y revisión por Ops Lead (Kanban).
+- Aprobación → asignar rol SELLER + vincular a hub/zone (scope seller estático).
+- Edge cases (corregidos)
+- Zona inexistente → waitlist (lead).
+- Zona desactivada o sin capacidad → waitlist prioritaria.
+- Si Ops Lead intenta “crear zona” para habilitar seller → denegado por permisos (consistencia Jerarquía).
+- 4.4 Privacidad: “Admirador Secreto” + Trust Badge
+- Regla corregida (seguridad sin filtrar identidad):
+- Si orden anónima, seller ve “Admirador Secreto” + Trust Badge del buyer (“Comprador Verificado – Trust Alto”).
+- 4.5 Entrega: vínculo identidad-evidencia (Tridente) y canal seguro del PIN
+- Confirmación de entrega requiere PIN+GPS+Foto con validaciones duras; PIN hasheado; anti-replay nonce; rate limiting por fallos.
+- Regla de comunicación segura: no enviar info bancaria sensible por email/SMS; PIN por canal seguro in-app/link seguro.
+- 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+- 5.1 Identidad y sesión (regla canónica)
+- Auth externo (Firebase/Auth0) solo autentica; backend autoriza y emite JWT con claims propios.
+- 5.2 Web vs Mobile (anti-manipulación)
+- Web Admin/Website puede ser “view-only” para funciones sensibles de entrega; la verificación real (GPS/foto) se ejecuta desde mobile.
+- 5.3 Overrides y “four-eyes” (escaladas peligrosas)
+- Cambios de RBAC + alertas por escaladas raras + impersonation log + four-eyes en capa de gobernanza.
+- 5.4 Crypto-shredding y retención correcta (corrección explícita)
+- No se shreddea historial contable/ledger; marketing/perfil sí. Ledger/AML se mueve a bóveda fiscal/cold storage bajo DELETED_PENDING_ARCHIVE.
+- 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+- 6.1 Identidad interna
+- users
+- id (UUID), auth_provider (firebase|auth0), provider_user_id, email, phone_e164, email_verified, phone_verified
+- default_country_code (inferido), created_at, status (ACTIVE|RESTRICTED|SUSPENDED|DELETED_PENDING_ARCHIVE)
+- user_identities (opcional si se soportan múltiples providers por cuenta)
+- user_id, provider, provider_user_id, linked_at
+- 6.2 Perfil y preferencias
+- user_profile
+- user_id, display_name, legal_name (si aplica), locale, marketing_opt_in, contact_prefs, created_at, updated_at
+- user_addresses
+- id, user_id, country_code, address_fields_json, lat, lng, normalized_hash, is_default, created_at
+- Índices: (user_id, is_default), normalized_hash, geohash opcional
+- 6.3 Roles, permisos y scopes (gobernanza)
+- roles, permissions, role_permissions
+- user_roles(user_id, role, assigned_by, reason, assigned_at)
+- user_scopes(user_id, scope_type, scope_id, assigned_by, reason, assigned_at)
+- Base: rol viaja en JWT y middleware por permiso; auditoría de gobernanza.
+- 6.4 Seller Application (onboarding)
+- seller_applications
+- id, user_id, country_code, hub_id, zone_id, business_address_id, kyc_payload_json, status (DRAFT|SUBMITTED|PENDING_APPROVAL|APPROVED|REJECTED|WAITLISTED), reviewed_by, reviewed_at, decision_reason_codes[]
+- 6.5 Auditoría WORM (Black Box)
+- audit_logs append-only con actor_id, actor_role, action_type, resource_type/id, changes(old/new), metadata (IP/UA/geo/reason), created_at. Retenciones diferenciadas.
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- 7.1 Eventos del dominio Usuarios
+- user.created, user.updated_profile, user.address_added/updated/deleted
+- auth.login_succeeded/failed, auth.provider_linked
+- rbac.role_assigned/revoked, rbac.scope_assigned/revoked
+- seller.application_submitted, seller.application_approved/rejected/waitlisted
+- user.status_changed (SUSPENDED/RESTRICTED/DELETED_PENDING_ARCHIVE)
+- privacy.crypto_shred_requested/executed
+- 7.2 Idempotencia (obligatorio)
+- Para endpoints mutables (link provider, cambiar phone, enviar seller application, asignar rol): idempotency_key por request + dedupe por (user_id, action_type, time_bucket).
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- 8.1 Auth Service (Firebase/Auth0)
+- Input: token del proveedor
+- Output: JWT propio del backend con claims.
+- 8.2 Geo Context
+- POST /context/resolve para resolver country_id/hub_id/zone_id/status.
+- 8.3 App Camaleón (Server-Driven UI)
+- GET /config/ui-profile?... devuelve UI profile + flags + signature + schema version + ETag; app cachea y hot reload por config_version.
+- 8.4 Archivos (PII/Evidencia)
+- Evidencia privada y PoD via signed URLs, con RBAC+ABAC y retención por clase.
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Logs (mínimos)
+- user_id, actor_id, action, country_code, role, permission, scope, result, deny_reason, request_id, trace_id
+- Métricas
+- auth_login_fail_total{reason,country}
+- jwt_issue_total{role}
+- seller_application_funnel_total{status,country}
+- account_status_change_total{from,to}
+- crypto_shred_total{type}
+- Alertas
+- Anomalías de escalada RBAC (four-eyes/impersonation)
+- Pico de fallos PIN/confirmaciones (anti-abuso)
+- Cambios masivos de zone_status impactando usuarios (integración con jerarquía/geo)
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- 10.1 Auditoría de identidad (no editable)
+- RBAC changes, overrides, impersonation, cambios de estado de cuenta y borrado → append-only.
+- 10.2 Privacidad defendible
+- Crypto-shredding: PII cifrada con clave por usuario; al “olvidar”, destruir clave → logs permanecen pero PII irrecuperable.
+- 10.3 Retención por clase
+- Financieros/legales 7 años (ejemplo), operativos 1 año, accesos 90 días (según política).
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Jerarquía/Geo: SuperAdmin define territorio; Ops Lead opera status/capacidad; regla dura “Zone Suspended”.
+- App Camaleón: UI profile por país/hub/zona/rol + config firmada + fallback.
+- Entrega/Tridente: identidad del evento de entrega ligada a evidencia; confirmación robusta.
+- Archivos: acceso por signed URLs y ABAC “need-to-know”.
+- Conflictos/Incoherencias corregidas (dentro del sistema Usuarios)
+- “Auth provider = sistema de usuarios” → corregido: proveedor autentica; backend autoriza y emite claims/JWT propios.
+- “Borrado total” vs AML/KYC/ledger → corregido explícitamente con DELETED_PENDING_ARCHIVE + bóveda fiscal + crypto-shredding solo para PII no financiera.
+- Anonimato vs seguridad del seller → corregido: Admirador Secreto siempre muestra Trust Badge semi-visible.
+- Geo “pertenencia” del Buyer → corregido: buyer usa contexto dinámico por intención; seller queda estático por pin/geo.

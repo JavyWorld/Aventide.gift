@@ -13,7 +13,7 @@ Aventide opera como una plataforma transaccional multi-dominio y multi-país que
 - operación y resiliencia (`observability`, `continuity`, `backup`, `integrations`, `files`),
 - capa normativa por país (`docs/03-COUNTRY-POLICIES`).
 
-La arquitectura documental está organizada por **38 dominios canónicos** y conserva los `.docx` en `Sistemas/` como respaldo histórico controlado.
+La arquitectura documental está organizada por **38 dominios canónicos** y conserva los `.docx` en `Sistemas/` como respaldo histórico controlado. Además, existe un espejo en Markdown 38/38 en `docs/07-SISTEMAS-TRANSCRITOS/` para lectura integral IA/humana sin depender del formato `.docx`.
 
 ## 2) Mapa de sistemas (38)
 

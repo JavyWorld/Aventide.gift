@@ -1,0 +1,232 @@
+# content · Transcripción integral desde `sistema-de-contenido-260206_2344.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-contenido-260206_2344.docx`
+- Dominio canónico asociado: `content`
+- Título detectado: Sistema de Contenido v2.0 (corregido y unificado)
+
+## Transcripción
+
+- Sistema de Contenido v2.0 (corregido y unificado)
+- Fuente de verdad: “Sistema de Contenidos — Motor de Contenido y Catálogo (Content & Experience Engine)”.
+- Objetivo del rewrite: eliminar incoherencias típicas de catálogo (publicación sin capacidad/logística, variaciones locales caóticas, UGC sin control, stock mostrando cosas incomprables, fuga de plataforma, moderación inconsistente) y dejarlo robusto, multi-país, policy-driven, auditable, y 100% integrado con Capacidad, Logística y Reputación/Moderación.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Motor que gestiona la “Verdad Visible” del marketplace: todo lo que se muestra en feed/búsqueda/ficha y todo lo que se puede comprar con confianza. Un producto no es un registro plano: es un objeto inteligente con:
+- Core_Data (global),
+- Localized_Data (por país/idioma/temporada),
+- Logistics_Rules (entregabilidad/cobertura),
+- Capacity Binding (cuándo se puede entregar),
+- Social Proof (reviews/ratings verificadas),
+- Moderation State (gate de calidad).
+- Objetivos:
+- Publicable ⇒ comprable ⇒ entregable: bloquear publicación si falta capacidad o reglas logísticas.
+- Curaduría local con estándar global: taxonomía dinámica por país sin romper estructura.
+- Moderación pre y post: IA + revisión humana según riesgo/reputación.
+- Inventario coherente: visibilidad se adapta a stock/capacidad/suspensiones en < 1 min.
+- UGC confiable: reviews verificadas con PIN + bayesian rating + anti-leak.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Catálogo: productos, variantes/modificadores, add-ons, atributos dinámicos obligatorios por categoría.
+- Localización: títulos/descripciones/atributos por country_code y locale, y activación estacional.
+- Pricing multi-moneda + overrides estacionales (“surge pricing por fechas”).
+- Activos visuales: ingesta con reglas + pre-moderación IA + revisión humana.
+- Workflow de publicación y estados (DRAFT→PENDING→ACTIVE, etc.) con gates por capacidad/logística/moderación.
+- Reviews/ratings + badges (Verified Purchase, Top Seller) y moderación de UGC.
+- Reglas de visibilidad por stock/capacidad/vacaciones/suspensión seller.
+- Excluye
+- Motor de Capacidad y Calendario como sistema (Contenido solo vincula y bloquea publicación).
+- Logística/coverage como sistema (Contenido solo requiere rules válidas y consulta).
+- Moderación/Trust & Safety completa (Contenido integra gates/estados y dispara/recibe decisiones).
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Actores
+- SELLER: crea y edita productos propios en DRAFT; solicita publicación.
+- CONTENT_MODERATOR / COUNTRY_OPS_LEAD: revisa PENDING, aprueba/rechaza, fuerza PAUSE por calidad/compliance local.
+- SUPER_ADMIN: define taxonomía global, políticas globales de contenido, estándares visuales, reglas de atributos obligatorios.
+- SYSTEM/BOT: pipelines de pre-moderación IA, indexación, invalidación de cachés, sincronización de visibilidad.
+- 3.2 Permisos (namespaces mínimos)
+- content.product.create/update/delete_own
+- content.product.submit_for_review
+- content.product.publish (moderator/ops o fast-track automatizado)
+- content.product.reject (moderator/ops)
+- content.product.pause/unpause (moderator/ops/system)
+- content.taxonomy.manage (super_admin)
+- content.attributes_schema.manage (super_admin)
+- content.assets.upload (seller)
+- content.assets.moderate (moderator/system)
+- ugc.review.moderate (moderator)
+- 3.3 Guards (backend manda)
+- Auth
+- Role/PermissionGuard
+- OwnershipGuard (seller_id = actor_id para mutaciones seller)
+- ScopeGuard (country_code cuando aplica a revisión/operación)
+- PolicyGuard (reglas locales: temporadas, categorías activas, compliance)
+- QualityGateGuard (capacidad + logística + assets + atributos requeridos + estado de seller)
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Creación de producto (DRAFT)
+- Happy path
+- Seller crea producto en DRAFT (solo visible para él).
+- Selecciona categoría (taxonomía dinámica del país).
+- Sistema exige atributos obligatorios por categoría (SKU modifiers).
+- Subida de imágenes con reglas (min 1080², sin texto/agua/collage).
+- Selección de modelo de capacidad (stock físico / producción diaria / lead time / cut-off).
+- Configura logística (cobertura/entrega/cadena de frío, etc.).
+- Edge cases
+- Falta alérgenos (categoría comida): el producto no sale de DRAFT (campo crítico).
+- Imagen con teléfonos/emails/texto: queda FLAGGED por IA y bloquea envío a revisión.
+- 4.2 Envío a revisión (PENDING) y gate de calidad
+- Happy path
+- Seller “Submit for review”.
+- Validaciones duras:
+- atributos completos según categoría,
+- capacidad válida,
+- reglas logísticas presentes,
+- assets pasan pre-check IA o quedan en cola humana.
+- Si seller es nuevo: revisión manual por Ops/Moderator.
+- Si seller trusted (reputación > 90): Fast Track (publicación automática) con auditoría posterior aleatoria.
+- Edge cases
+- Trusted pero la IA detecta riesgo (nudity/text/dup robado): se anula fast-track y vuelve a PENDING humana.
+- Rechazo: estado REJECTED con razón específica (“foto borrosa”, “descripción engañosa”).
+- 4.3 Publicación (ACTIVE) e indexación
+- Happy path
+- Moderator aprueba o fast-track publica.
+- Producto pasa a ACTIVE.
+- Se indexa en búsqueda y feed.
+- Se habilitan badges/ratings visibles (si aplica).
+- Edge cases
+- Se pierde capacidad (capacidad llena, o lead time no satisface): no necesariamente “despublica”; se bloquean fechas en calendario o cambia visibilidad según reglas.
+- 4.4 Vida operativa: PAUSED por stock/capacidad/vacaciones/suspensión
+- Reglas de visibilidad (“lo visible debe ser comprable”):
+- stock == 0 ⇒ PAUSED
+- capacity_date == full ⇒ sigue visible pero fecha bloqueada
+- Vacation mode seller:
+- oculta todo o
+- permite compras futuras (según config)
+- Seller suspendido por Trust & Safety ⇒ productos desaparecen del índice en < 1 minuto.
+- 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+- 5.1 Regla dura de publicación
+- No existe ACTIVE si falta cualquiera:
+- contenido mínimo (title/desc/images),
+- atributos requeridos por categoría,
+- capacidad válida,
+- reglas logísticas válidas,
+- checks de moderación según perfil.
+- 5.2 Taxonomía dinámica por país (sin árbol rígido)
+- Categorías globales (Flores/Comida/Experiencias) + overlays locales por país/temporada (“Día de Muertos”, “Amor y Amistad”).
+- 5.3 Add-ons / personalización
+- Add-ons suman precio final.
+- No cambian el lead time principal.
+- Deben reflejarse en la orden para claridad operacional.
+- 5.4 Estándar visual
+- Min 1080×1080.
+- Prohibido: texto en imagen, marcas de agua, collages low quality.
+- 5.5 UGC (reviews) confiable
+- “Verified Purchase” solo si la orden tuvo PIN validado.
+- Rating bayesiano para evitar manipulación por pocas reviews.
+- Blind reviews: si hay disputa abierta, la review no se publica.
+- Anti-leak: bloqueo de teléfonos/emails en texto UGC.
+- 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+- 6.1 Producto (separación global/local)
+- Entidad: products
+- product_id, seller_id, status, fulfillment_type, created_at, updated_at
+- global_category_id
+- capacity_profile_id (FK obligatorio para publicar)
+- logistics_profile_id (FK obligatorio para publicar)
+- quality_flags (JSON: ai_flags, manual_flags, risk_score)
+- Índices: (seller_id, status), (status, updated_at)
+- Entidad: product_localizations
+- product_id, country_code, locale
+- title, description
+- attributes_json (key/value validado contra schema por categoría)
+- Índices: (country_code, locale), (product_id, country_code)
+- Entidad: product_assets
+- asset_id, product_id, type=image, url, width, height
+- ai_scan_status (PASS|FLAGGED|FAILED)
+- ai_flags (nudity, text_detected, watermark, duplicate_signal)
+- Índices: (product_id), (ai_scan_status, created_at)
+- 6.2 Taxonomía y schema de atributos
+- taxonomy_nodes (global + overlays locales)
+- node_id, parent_id, is_global, country_code?, season_key?, active_from/to?
+- category_attribute_schema
+- category_id, country_code?, required_keys[], constraints_json (enum/range/regex)
+- versionado: schema_version
+- 6.3 Pricing multi-moneda + seasonality
+- product_prices
+- product_id, country_code, currency, base_price
+- product_price_overrides
+- product_id, country_code, date_from, date_to, override_price
+- 6.4 Social proof / UGC
+- product_reviews
+- review_id, product_id, order_id, buyer_id, rating, text, status
+- verified_purchase (true si pin_verified=true)
+- blocked_by_dispute (true)
+- product_rating_aggregates
+- product_id, bayesian_rating, review_count
+- Inferencia: el documento da un JSON schema mínimo; aquí se normaliza a tablas para enforcement y performance, manteniendo la estructura conceptual. Coherente con “producto inteligente” y gates estrictos.
+- 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+- 7.1 Eventos del dominio Contenido
+- content.product_created/updated
+- content.product_submitted
+- content.product_approved/rejected
+- content.product_activated/paused/unpaused
+- content.asset_uploaded
+- content.asset_ai_flagged/passed
+- ugc.review_submitted/approved/rejected/blocked
+- trust.seller_suspended (entra y dispara desindexación <1 min)
+- 7.2 Triggers operativos
+- Al product_activated: indexar en search y generar “visible snapshot” para feed.
+- Al stock==0 o seller_suspended: product_paused + invalidate cache + deindex.
+- 7.3 Idempotencia
+- event_id único por transición.
+- Mutaciones con idempotency_key (submit, approve, pause, upload asset).
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- 8.1 Capacidad (binding obligatorio)
+- Input: capacity_profile_id y su modelo (stock/daily/lead/cutoff).
+- Validación: “sin modelo válido ⇒ no ACTIVE”.
+- 8.2 Logística/Cobertura
+- Input: reglas (lead_time_hours, cold_chain, coverage) y verificación de disponibilidad para “entregar en…”.
+- Contenido consulta y bloquea publicación si no existe perfil válido.
+- 8.3 Moderación IA
+- Integración con IA (ej. Rekognition/Vision) para nudity/text/contact info/duplication signals.
+- Retry: exponencial, DLQ para fallos, estado FLAGGED hasta resolución.
+- 8.4 Reputación/Trust & Safety
+- Input: score seller; si >90 habilita fast-track con auditoría posterior.
+- Input: suspensión seller ⇒ desindex <1 min.
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Logs
+- Acciones: create/update/submit/approve/reject/pause
+- actor_role, actor_id, seller_id, country_code, product_id, reason_code, diff
+- IA: asset_id, ai_flags, risk_score, decision
+- Métricas
+- content_products_submitted_total{country}
+- content_products_approved_total{country}
+- content_products_rejected_total{reason,country}
+- content_ai_flag_rate{flag}
+- content_time_to_publish_seconds{country}
+- content_deindex_latency_seconds (objetivo < 60s cuando seller suspendido)
+- Alertas
+- Aumento de ai_flag_rate (ataque de spam/fuga)
+- Caída de “approval rate” por país (schema/UX roto)
+- Deindex latency > 60s
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- Auditoría obligatoria
+- Toda decisión humana: approve/reject/pause requiere reason_code + comentario opcional.
+- Activos: almacenamiento con clasificación (PII? normalmente no, pero puede haber fotos sensibles) y retención.
+- Anti-fuga
+- Prohibición y detección de teléfonos/emails en imágenes y UGC.
+- Integridad
+- Versionar schema de atributos y guardar schema_version con cada producto para reproducibilidad.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Capacidad: bloqueo de publicación sin capacity model; reglas de “fecha llena”.
+- Logística/Cobertura: “publicable si entregable”.
+- Reputación/Trust & Safety: fast-track por score>90; suspensión desindex <1 min.
+- Órdenes/Entrega: Verified Purchase depende de PIN validado.
+- Jerarquía/RBAC: Ops Lead scoped por país para revisión; seller solo lo suyo.
+- Conflictos/incoherencias corregidas (dentro de Contenido)
+- Productos “visibles” sin capacidad/logística → corregido: QualityGate bloquea ACTIVE sin bindings obligatorios.
+- Categorías rígidas vs localización → corregido: taxonomía dinámica con global + overlays locales/temporada.
+- Add-ons rompiendo operación → corregido: add-ons no alteran lead time, sí precio, y se reflejan en orden.
+- UGC manipulable / fuga de plataforma → corregido: Verified Purchase por PIN, rating bayesiano, filtros tel/email, blind reviews por disputa.
+- Suspensión seller lenta → corregido: regla de desindex < 1 minuto con evento y métricas.
