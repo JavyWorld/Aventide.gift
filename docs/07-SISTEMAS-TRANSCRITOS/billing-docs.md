@@ -1,0 +1,241 @@
+# billing-docs · Transcripción integral desde `facturacion--documentos-260207_0805.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/facturacion--documentos-260207_0805.docx`
+- Dominio canónico asociado: `billing-docs`
+- Título detectado: Sistema: Facturación & Documentos v2.0 (Billing Engine + Document Vault) — corregido y unificado
+
+## Transcripción
+
+- Sistema: Facturación & Documentos v2.0 (Billing Engine + Document Vault) — corregido y unificado
+- Fuente de verdad: “Sistema: Facturación & Documentos (Legal/Fiscal)”.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Sistema que genera, numera, sella, almacena, distribuye y audita documentos fiscales/legales derivados de una orden y sus eventos (pago, release, refund, disputa), con reglas multi-país. El documento es un artefacto sellado: Snapshot + Plantilla + Driver País, no una “vista” recalculada.
+- Objetivos:
+- Compatibilidad total con Motor Financiero/Pagos: la verdad financiera viene del snapshot; los documentos no recalculan.
+- Multi-país real: soportar numeración/series, campos y facturación electrónica según país.
+- Anti-tampering y auditabilidad: PDFs + JSON canónico guardados en bóveda con WORM/Object Lock y hash.
+- Consistencia con descuentos: Fee Credits solo reducen platform_fee y nunca tocan seller_net / ops_fee / processing / taxes.
+- Distribución controlada: Document Center + email/link seguro + panel, con RBAC y eventos auditados.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Emisión automática de documentos por eventos del ciclo de orden/pagos: PAID_IN_ESCROW, COMPLETED, REFUND, DISPUTE_OUTCOME.
+- Plantillas versionadas por país/idioma/rol/tipo de documento.
+- Drivers fiscales por país (plugins) que encapsulan numeración, firma electrónica/timbrado y reglas fiscales locales.
+- Bóveda de documentos (Document Vault): almacenamiento seguro + cifrado + links temporales + Object Lock para fiscales.
+- Auditoría append-only: emisión, reenvío, descarga, anulación, reemplazo, notas de crédito.
+- Perfil fiscal (buyer/seller/plataforma) con preferencias (B2C/B2B, receptor, etc.).
+- Excluye
+- Cálculo financiero: pertenece a Pagos/Motor Financiero; aquí solo se consume order_financial_snapshot.
+- Evidencia forense completa (Black Box): Facturación referencia ledger_evidence_pack, pero no reemplaza Auditoría WORM del proyecto.
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Actores
+- BUYER: consulta/descarga documentos propios.
+- SELLER: consulta docs de sus órdenes + statements + payout statements.
+- COUNTRY_OPS_LEAD: ve docs del territorio bajo su alcance contractual (si aplica).
+- SUPER_ADMIN / FINANCE_ADMIN: emisión “on-demand”, correcciones controladas, auditorías.
+- SYSTEM/BOT: generación automática por eventos, almacenamiento, envío de notificaciones.
+- 3.2 Permisos mínimos
+- docs.read.own (buyer)
+- docs.read.seller (seller; restringido a seller_id)
+- docs.read.country (ops; scope país)
+- docs.issue (system/finance/admin)
+- docs.resend (system/support con límites)
+- docs.void_or_replace (finance/admin; solo vía driver país)
+- fiscal_profile.read/write (buyer/seller)
+- docs.audit.read (audit/finance/admin)
+- 3.3 Guards (backend manda)
+- Auth
+- PermissionGuard
+- OwnershipGuard (buyer/seller)
+- ScopeGuard (country_code para roles internos)
+- PolicyGuard (qué docs aplica emitir en el país, B2B/B2C, thresholds)
+- IdempotencyGuard (no duplicar emisión por reintentos)
+- AuditGuard (evento append-only obligatorio)
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Emisión automática al pagar (PAID_IN_ESCROW)
+- Happy path
+- Evento PAID_IN_ESCROW llega a Document Service.
+- Carga order_financial_snapshot + party snapshots (buyer/seller/ops/platform).
+- Policy Engine decide tipos de docs: siempre Order Receipt (buyer-facing, no fiscal).
+- Template Engine genera:
+- PDF,
+- JSON canónico (para reimpresión exacta).
+- Document Vault guarda con hash SHA-256 + firma interna.
+- Notificación: “tu recibo está listo” (in-app/email link seguro).
+- Edge cases
+- Webhook pago repetido: emisión idempotente por document_key; se retorna el doc existente.
+- 4.2 Factura fiscal (cuando aplique)
+- Happy path
+- Se evalúa política país:
+- automática,
+- on-demand,
+- condicionada (B2B, monto, tipo producto/servicio).
+- Country Invoice Driver:
+- asigna serie y número,
+- firma electrónica/timbrado (si aplica),
+- valida campos fiscales (tax_id, address, etc.).
+- Se emite documento Fiscal Invoice en estado issued.
+- Edge cases
+- Perfil fiscal incompleto (faltan tax_id/address): bloquear emisión y abrir tarea/CTA al usuario (y dejar audit trail de “issue_failed_profile_missing”). (No contradice doc: el sistema define perfil fiscal y drivers que exigen campos).
+- 4.3 Emisión al completar (COMPLETED)
+- Happy path
+- En COMPLETED (PIN validado / completada) emitir:
+- Seller Statement final (venta + fees + impuestos + neto + referencias),
+- opcionalmente Payout Statement ligado a release/payout.
+- Edge cases
+- Payout aún no ejecutado pero orden completada: Statement final se emite con payout_status=PENDING y se emite Payout Statement cuando ocurra PAYOUT_SENT (evento separado). (Consistente con “docs por eventos” y con pipeline de pagos).
+- 4.4 Refund / Disputa → Nota de crédito / Ajuste
+- Happy path
+- Al ejecutar refund parcial/total o ajuste por disputa:
+- emitir Credit Note (si aplica fiscalmente por país),
+- emitir documento de ajuste/reemplazo si el driver país lo requiere.
+- Edge cases críticos
+- Si ya existía factura fiscal: el ajuste no borra factura; emite nota de crédito y deja trazabilidad replaced_by/linked_to.
+- Si el país no usa nota de crédito formal: se emite un “Adjustment Statement” no-fiscal pero sellado (según policy) sin violar el driver.
+- 5) Reglas y políticas (límites, validaciones, caps)
+- 5.1 Inmutabilidad post-pago (regla dura)
+- Todo monto que sale en documentos proviene del snapshot; jamás recalcular con config actual.
+- 5.2 Documento como artefacto sellado
+- Docs = Snapshot + Template + Country Driver
+- Se guarda hash SHA-256 del PDF/JSON + firma interna anti-tampering.
+- 5.3 Fee Credits (lealtad) — coherencia absoluta
+- Solo reducen platform_fee hasta 0.
+- En recibo buyer:
+- platform_fee_before_credits
+- fee_credits_applied
+- platform_fee_after_credits
+- En statement seller:
+- no aparece “descuento por lealtad” afectando seller (porque no existe).
+- 5.4 Cupón del seller
+- Sí reduce items_subtotal del seller (impacta su neto).
+- 5.5 Impuestos
+- Representación explícita por líneas y modelo país:
+- tax incluido vs agregado,
+- retenciones,
+- impuestos sobre fees.
+- 5.6 Emisión idempotente (anti-duplicados)
+- document_key = (order_id, doc_type, issuer_entity, version)
+- Reintentos devuelven el doc existente; no se crea uno nuevo.
+- 5.7 Numeración/series (por issuer)
+- Cada doc fiscal requiere:
+- country_code
+- issuer_entity_id (Aventide / Seller entity si aplica)
+- series_id
+- next_number
+- El Country Driver define formato, reinicios, prefijos.
+- 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+- 6.1 fiscal_profiles
+- fiscal_profiles
+- profile_id
+- owner_type (BUYER|SELLER|PLATFORM)
+- owner_id
+- legal_name
+- tax_id
+- address_normalized
+- country_code
+- invoice_preferences JSON (B2C/B2B, receptor_email, etc.)
+- updated_at
+- Índices:
+- unique(owner_type,owner_id,country_code)
+- 6.2 documents
+- documents
+- id
+- order_id
+- doc_type (RECEIPT|FISCAL_INVOICE|CREDIT_NOTE|SELLER_STATEMENT|PAYOUT_STATEMENT|LEDGER_EVIDENCE_PACK|AUDIT_EXPORT)
+- country_code
+- issuer_entity_id
+- series_id, number
+- status (DRAFT|ISSUED|VOIDED|REPLACED)
+- pdf_url, json_url
+- hash_sha256
+- issued_at
+- driver_version, template_version
+- document_key (unique)
+- replaces_document_id?, replaced_by_document_id?
+- Índices:
+- unique(document_key)
+- (order_id, doc_type)
+- (country_code, issuer_entity_id, series_id, number)
+- 6.3 document_events (append-only)
+- document_events
+- event_id
+- document_id
+- event_type (ISSUED|RESENT|DOWNLOADED|VOIDED|REPLACED|ISSUE_FAILED)
+- actor_id, actor_role
+- ip/device
+- timestamp_utc
+- metadata JSON
+- Índices:
+- (document_id,timestamp_utc)
+- (event_type,timestamp_utc)
+- 6.4 document_number_series
+- document_number_series
+- series_id
+- country_code
+- issuer_entity_id
+- next_number
+- format_rules
+- lock_version (optimistic locking)
+- 7) Eventos y triggers + idempotencia
+- 7.1 Eventos que disparan docs (ciclo de vida)
+- PAID_IN_ESCROW → emitir Order Receipt
+- COMPLETED → emitir Seller Statement final
+- PAYOUT_SENT → emitir Payout Statement (si habilitado)
+- REFUND_EXECUTED / DISPUTE_SAGA_COMPLETED → Credit Note/Ajuste (según driver país)
+- 7.2 Idempotencia
+- Emisión: document_key unique
+- Series: asignación de number con lock transaccional por series_id + lock_version
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- 8.1 Órdenes / Pagos
+- Input:
+- order_financial_snapshot (fuente de montos),
+- order_party_snapshot,
+- referencias: rapyd_transaction_id, escrow_release_id, refund_id, dispute_id.
+- 8.2 Policy Engine (multi-país)
+- Decide: auto vs on-demand, tipos docs habilitados, tax model, issuer_entity por país.
+- 8.3 Notificaciones
+- Templates: “recibo listo / factura emitida / nota de crédito emitida”
+- Canales: in-app Document Center, email (link seguro), panel.
+- 8.4 Document Vault (Archivos)
+- Storage seguro con:
+- cifrado at-rest,
+- signed URLs,
+- Object Lock/WORM para fiscales,
+- retención y clasificación.
+- 9) Observabilidad (logs, métricas, alertas, SLOs) — aplicado a Facturación
+- Métricas mínimas
+- docs_issued_total{doc_type,country}
+- docs_issue_failed_total{reason,country}
+- docs_driver_api_latency_p95{country}
+- docs_series_lock_conflicts_total{country,series}
+- docs_vault_write_fail_total
+- docs_idempotent_hit_total{doc_type}
+- Alertas mínimas
+- docs_issue_failed_total spike (driver país caído / perfil fiscal incompleto masivo)
+- conflictos de numeración (lock) anormales
+- errores de WORM/Object Lock (alto riesgo compliance)
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- 10.1 WORM / retención
+- Docs fiscales y su historial se guardan con Object Lock/WORM; no se borran por solicitud de usuario.
+- Se puede despersonalizar donde aplique, pero no destruir evidencia financiera.
+- 10.2 Auditoría append-only
+- Toda acción sobre docs (emitir, reenviar, descargar, invalidar, emitir nota crédito) genera document_events.
+- 10.3 Acceso
+- Links temporales (signed URLs)
+- ABAC/RBAC por rol (buyer/seller/ops/admin) con logs de acceso.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Pagos/Motor Financiero: documentos se generan solo desde snapshots; fee credits solo platform_fee; cupon seller reduce subtotal.
+- Órdenes: emisión por eventos PAID_IN_ESCROW, COMPLETED, REFUND.
+- Ledger/Escrow: referencias a transacciones/release/refund y evidencia pack para disputas/auditoría.
+- Notificaciones: distribución multi-canal con plantillas por rol/país.
+- Archivos: Document Vault seguro con WORM para fiscales.
+- Conflictos/incoherencias corregidas (dentro de Facturación & Documentos)
+- Recalcular montos con reglas nuevas → eliminado: docs desde snapshot inmutable.
+- Fee Credits afectando seller/ops/processing/taxes → eliminado: solo platform_fee (con líneas explícitas).
+- Duplicación de facturas por reintentos → eliminado: document_key idempotente + series con locking.
+- Docs fiscales editables o borrables → eliminado: WORM/Object Lock + audit trail append-only.
+- Refund sin ajuste fiscal → corregido: credit note/ajuste según country driver y política.

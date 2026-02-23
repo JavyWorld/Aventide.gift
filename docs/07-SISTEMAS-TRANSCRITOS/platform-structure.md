@@ -1,0 +1,306 @@
+# platform-structure · Transcripción integral desde `estructura-v2-260207_1049.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/estructura-v2-260207_1049.docx`
+- Dominio canónico asociado: `platform-structure`
+- Título detectado: Estructura v2.0 (Estructura del Proyecto / Plataforma Aventide Gift)
+
+## Transcripción
+
+- Estructura v2.0 (Estructura del Proyecto / Plataforma Aventide Gift)
+- Fuente de verdad: “estructura-260207_1042.docx”.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: “Estructura” es el diseño canónico de cómo se organiza Aventide Gift a nivel de:
+- capas (Client / Server / 3rd party),
+- componentes (API, DB, workers, storage, webhooks, UI Config),
+- dominios (módulos del monolito modular),
+- contratos transversales (territorio como first-class, policy engine, RBAC+scopes, server-driven UI, auditoría WORM, pipeline de dinero),
+- y repositorio (monorepo + packages compartidos).
+- Objetivos (duros):
+- Un core único (misma API/reglas/datos) para web+mobile+paneles.
+- Separación explícita Client / Server / Integraciones para evitar acoplamientos peligrosos (especialmente dinero).
+- Multi-país/territorio como “primera clase” en requests, UI, reglas, búsqueda, pagos, auditoría y analítica.
+- Trazabilidad y evidencia (logs anti-PII + auditoría append-only + WORM) como base transversal.
+- Plano asíncrono obligatorio (BullMQ/workers) para integraciones y procesos críticos.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Monorepo: apps (API/workers/webs/mobile/paneles) + packages (DTOs/contracts/UI-LEGO) + infra + docs/ADR.
+- Backend operable: /api/v1, Postgres+PostGIS, Redis+colas, S3 WORM, gateway de webhooks, workers con DLQ/retries/backoff, observabilidad base.
+- Client Camaleón: boot config, ETag, firma, fallback, modo degradado.
+- Controles transversales: RBAC+scopes, PolicyGuard, idempotencia, anti-PII, break-glass.
+- Excluye
+- Implementación completa de cada dominio (se construye por fases; aquí se fija la estructura/contratos).
+- Orquestación exacta “multi-servicio” en un único workspace/deploy (explícitamente no definida).
+- 3) Actores y permisos (RBAC) + guards (estructura de autorización)
+- Modelo base: RBAC + scopes geográficos en claims (role + scopes.countries/hubs + permissions).
+- Cadena recomendada de guards (orden canónico):
+- AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard
+- Principios estructurales:
+- Scope obligatorio (sin country_id/hub_id el permiso no aplica).
+- Separación de poderes + kill switch regional auditado.
+- Service actors: workers/webhooks corren con service_id para trazabilidad/auditoría.
+- 4) Componentes y composición (estructura por capas)
+- 4.1 Client (Mobile + Web Buyer + Panels)
+- Mobile (Buyer/Seller):
+- React Native (Expo), TS estricto, JWT en SecureStore, retry/backoff, modo degradado, permisos GPS/cámara (evidencia/logística).
+- Camaleón: GET /api/v1/config/ui con x-country-id (+ hub/zone/role/app_version); ETag + firma + fallback.
+- Web Buyer:
+- Otro terminal del mismo core: misma API, reglas, sesión y carrito, orientado a captación/SEO y compra rápida.
+- Web Panels (SuperAdmin + Regional OS):
+- Shell con selector de contexto GLOBAL → país → hub → zona (scope territorial es parte del shell).
+- Regional OS incluye Studio para operar config/UI/merchandising bajo guardrails y auditoría.
+- 4.2 Server (monolito modular + datos + plano asíncrono)
+- Runtime/stack:
+- Node.js + NestJS + TypeScript; monolito modular (no microservicios por ahora).
+- DB/Geo:
+- PostgreSQL + PostGIS + Prisma; zonas como polígonos y queries de cobertura/asignación.
+- Async/Workers:
+- Redis + BullMQ para jobs (notifs, pagos, liquidación, etc.), con retries/backoff y DLQ.
+- Storage/Evidencia:
+- S3 con Object Lock (WORM), inmutabilidad + retención; bóveda de documentos con hash/firma anti-tampering y links temporales.
+- Módulos canónicos del monolito (estructura por dominios):
+- /auth (login/JWT/guards)
+- /users (perfiles/KYC)
+- /catalog (productos/precios)
+- /orders (máquina de estados)
+- /logistics (PIN/GPS/dispatcher)
+- /finance (ledger/taxes/proveedor pagos)
+- /communications (chat/push/email)
+- /ui-config (Camaleón)
+- Regla de oro del dinero:
+- El frontend nunca mueve dinero ni habla directo con Rapyd para mover fondos; todo pasa por backend + ledger/pipeline auditable.
+- 4.3 3rd parties (integraciones externas)
+- Pagos: Rapyd (sessions por country_code, wallets/escrow, payouts + webhooks).
+- Geo: Google Maps o Mapbox (Places, Distance Matrix).
+- Notificaciones: FCM, WhatsApp Business (Meta/Twilio), SendGrid o SES.
+- 5) Flujos end-to-end estructurales (plumbing obligatorio)
+- 5.1 Request API (sin trabajo pesado en request)
+- /api/v1/* genera/propaga trace_id + request_id, adjunta contexto territorial desde headers, valida DTO, accede DB, responde; logs JSON anti-PII.
+- 5.2 Webhooks inbound → persist RAW → dedupe → enqueue
+- POST /api/v1/webhooks/:provider/... verifica firma, persiste payload raw, dedupe, responde 200 rápido, encola job con trace_id/dedupe_key.
+- 5.3 Worker job → retries/backoff → DLQ
+- Worker ejecuta handler con timeouts y retries; si excede → DLQ con causa y acción siguiente.
+- 5.4 Camaleón (Server-driven UI) boot + caching + fallback + hot reload
+- Response contiene: ui_profile + feature_flags + dictionary + modules + validation_rules + ui_schema_version + signature + ETag.
+- Edge cases obligatorios: 304, firma inválida → fallback last-good, fetch fail → fallback, schema no soportado → safe profile.
+- 5.5 Studio (Ops Lead) para operar UI/config sin código
+- Rutas de Studio + flujo draft→preview→publish + time machine + rollback con auditoría completa.
+- 5.6 Money pipeline (visión estructural)
+- Core registra intención/estado → workers llaman proveedor → webhooks confirman → handler reconcilia “observed vs expected” → transición de estados (ej. PAID_IN_ESCROW).
+- 6) Reglas y políticas estructurales (cross-cutting)
+- 6.1 Idempotencia + dedupe
+- Tabla idempotency_keys para endpoints críticos; dedupe de webhooks por provider_event_id + firma + ventana.
+- 6.2 Anti-PII
+- Prohibido loggear teléfono/email/dirección exacta/latlng crudo; usar zone_id/hub_id y hashing/masking.
+- 6.3 WORM/retención
+- PDFs emitidos y evidencia (PoD) inmutables; bóveda cifrada, hash SHA-256, firma interna anti-tampering, distribución por links temporales + access logs.
+- 6.4 Break-glass
+- Acciones críticas (ej. force release escrow) requieren re-auth/2FA + reason + expiración + logging extra.
+- 7) Modelo de datos estructural (fundacional)
+- 7.1 Núcleo territorial (geo)
+- countries / hubs / zones fundacionales; zonas = polígonos PostGIS (GiST) con validación de overlaps/priority.
+- 7.2 UI Config
+- ui_profiles versionadas (config_version), scheduling, rollback, auditoría; entrega por contrato (profile/flags/dictionary/modules/validation_rules/schema_version/signature/ETag).
+- 7.3 Webhooks + idempotencia
+- idempotency_keys(key, scope, request_hash, status, response_snapshot, expires_at)
+- webhook_events_raw(provider, provider_event_id, signature_valid, payload_json, received_at, dedupe_key, processed_at, processing_status)
+- 7.4 Auditoría append-only
+- audit_logs append-only (sin UPDATE/DELETE), writer dedicado con actor/service, acción, recurso, diff, reason, scope, request_id/trace_id.
+- 7.5 Files/Document Vault
+- files (UUID, country_code, data_class, scope, owner, hash, storage_uri, is_worm, retención, legal_hold, key_ref, timestamps)
+- file_access_log append-only + índices por scope/data_class/actor/tiempo.
+- 8) Eventos y triggers (estructura de integración)
+- Emisión confiable de eventos por transiciones (Outbox Pattern) para notificaciones/analítica/workers y trazabilidad del “money journey”.
+- Document pipeline: emitir por eventos PAID_IN_ESCROW, COMPLETED, REFUND, con idempotencia document_key=(order_id, doc_type, issuer_entity, version).
+- 9) Observabilidad (estructura de logs, métricas, health)
+- Logs JSON obligatorios con campos estándar (trace_id, request_id, job_id, country/hub/zone, ids dominio, provider_event_id, idempotency_key, status/error/retry/latency).
+- Health endpoints mínimos: /health, /health/workers, /health/queues, /health/db.
+- SLO prioridad money pipeline: SEV0 si checkout roto por país, payout detenido, duplicación de cobros.
+- 10) Seguridad y auditoría (estructura de control)
+- Auditoría append-only + catálogo mínimo: CONFIG_UPDATE, FEATURE_FLAG_TOGGLE, WEBHOOK_RECEIVED, EXTERNAL_CALL, BREAK_GLASS_START/END, VIEW_SENSITIVE.
+- Evidencia WORM para documentos y PoD con hash/firma y accesos auditados.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- La estructura obliga compatibilidad nativa entre:
+- Geo Core (PostGIS) ↔ Policy engine ↔ SearchContext ↔ Orders ↔ Analytics (sin PII).
+- Camaleón/Config ↔ resiliencia (firma/ETag/fallback/rollback) ↔ observabilidad.
+- Webhooks ↔ RAW/dedupe/DLQ/replay auditado ↔ money pipeline trazable end-to-end.
+- Conflictos/incoherencias corregidas (en “Estructura”)
+- Microservicios prematuros vs complejidad multi-país → fijo: monolito modular + workers/colas (plano asíncrono) como estructura oficial.
+- UI hardcodeada por país → fijo: Server-Driven UI (Camaleón) con firma/ETag/fallback/rollback.
+- Dinero desde frontend o sin auditoría → fijo: backend+ledger+webhooks RAW, dedupe e idempotencia obligatoria.
+- Falta de “first-class territory” → fijo: country/hub/zone atraviesa todo (requests, reglas, UI, búsqueda, pagos, auditoría, analítica).
+- Observabilidad débil o con PII → fijo: logs estructurados anti-PII + métricas/health por país + DLQ/replay auditado.
+- Estructura de Deployment v2.0 (CI/CD + Entornos + Rollback) — alineada a “Estructura”
+- Fuente de verdad: “Estructura v2.0 (monorepo, monolito modular + workers, Camaleón, WORM, webhooks RAW, RBAC+PolicyGuard, Postgres+PostGIS, Redis/BullMQ, observabilidad)”.
+- 1) Definición y objetivos
+- Definición: Estructura de deployment es el conjunto de entornos, pipelines, artefactos, estrategias de release y rollback que permiten desplegar el monolito modular (API), los workers (BullMQ), y las superficies (web/mobile/paneles), garantizando:
+- no retroactividad en dinero (snapshots),
+- idempotencia y continuidad ante reintentos,
+- multi-país por country/hub/zone,
+- Camaleón (server-driven UI) con publish/rollback seguro,
+- auditoría WORM y evidencia de cambios.
+- Objetivos (duros):
+- Release sin downtime para API y workers (o degradación controlada).
+- Rollback rápido y seguro (código + config + UI).
+- Migraciones sin romper compatibilidad (DB contract-first).
+- Separación de concerns: API y Workers desplegables por separado.
+- Secrets y llaves bajo KMS/Secret Manager; trazabilidad total (audit log).
+- 2) Alcance
+- Incluye:
+- Definición de entornos (dev/staging/prod) y variantes por país.
+- CI/CD en monorepo: build/test/lint/migrations/deploy.
+- Estrategias de blue-green/canary para API/workers/paneles.
+- Gestión de migraciones Postgres+PostGIS.
+- Gestión de secrets (rotación) y configuración (Camaleón + feature flags).
+- Rollback (código + DB + config/UI) con reglas.
+- Excluye:
+- Elección de proveedor cloud específico (no definido en la documentación).
+- Detalle de IaC (Terraform/Helm) si no está en docs (se modela como estructura abstracta).
+- 3) Actores y permisos (RBAC) + guards
+- Actores:
+- SRE_ADMIN: despliegues, rollbacks, operaciones de emergencia.
+- RELEASE_MANAGER: aprueba releases a prod (four-eyes).
+- DEV: despliegues a dev/staging.
+- SECURITY_ADMIN: secrets/keys/rotación.
+- COUNTRY_OPS_LEAD: publish UI/config por país vía Studio (no despliega binarios).
+- Permisos mínimos:
+- deploy.dev.execute, deploy.staging.execute, deploy.prod.execute
+- deploy.rollback.execute (prod: SRE + aprobación)
+- db.migrate.apply (staging/prod: pipeline)
+- secrets.read.ref (runtime), secrets.rotate (security_admin)
+- ui_config.publish / ui_config.rollback (ops lead, auditado)
+- Guards (orden canónico + deployment):
+- AuthGuard → RoleGuard → ScopeGuard → PermissionGuard → PolicyGuard
+- ReleaseApprovalGuard (prod requiere aprobación)
+- MigrationSafetyGuard (bloquea migraciones destructivas sin fase previa)
+- BreakGlassGuard (rollback/migración emergencia con 2FA+motivo+TTL, auditado)
+- 4) Entornos y topología de despliegue
+- 4.1 Entornos
+- dev: integración rápida; datos sintéticos; webhooks sandbox.
+- staging: espejo funcional de prod; pruebas E2E; cargas controladas; validación de migraciones.
+- prod: multi-país activo; auditoría WORM; webhooks reales; SLOs.
+- Regla multi-país: el mismo binario sirve a todos; la variación está en policy + config + scopes (country/hub/zone) y en providers por país (integraciones), no en forks de código.
+- 4.2 Unidades de despliegue (artefactos)
+- Alineado a “monolito modular + workers”:
+- API Service (NestJS)
+- Worker Service(s) (BullMQ): por dominios críticos (payments, notifications, webhooks-processing, documents, analytics, etc.)
+- Webhook Gateway (puede ser parte del API o un edge service lógico; si está dentro del API, igual requiere rutas separadas y políticas de rate limit)
+- Panel/Studio Web (Regional OS + SuperAdmin)
+- Web Buyer
+- Camaleón Config Store (datos versionados en DB; publish/rollback sin deploy)
+- Regla: API y Workers se despliegan independientes (versionado separado), con contratos compatibles.
+- 5) Pipeline CI/CD (monorepo)
+- 5.1 Pipeline estándar por PR
+- lint + typecheck (TS estricto)
+- unit tests (dominios)
+- contract tests (DTOs/contracts compartidos)
+- build (API + workers + web/panel)
+- security scans (deps, secretos, SAST)
+- preview deploy (opcional) a entorno efímero para UI/panel
+- artifact publish (solo si merge a main)
+- 5.2 Pipeline de staging (main → staging)
+- Deploy API (canary 5–20%)
+- Deploy workers (canary por cola / porcentaje de jobs)
+- Aplicar migraciones (ver sección 7)
+- E2E + smoke tests:
+- checkout sandbox (sin dinero real),
+- webhook signature validation,
+- Camaleón fetch (ETag/signature/fallback),
+- DLQ vacío o bajo umbral,
+- health endpoints.
+- 5.3 Pipeline de prod (staging aprobado → prod)
+- Gating obligatorio:
+- Aprobación RELEASE_MANAGER + SRE_ADMIN (four-eyes).
+- SLO pre-check (errores/latencia) y DLQ thresholds.
+- Confirmación de compatibilidad de migraciones (ver sección 7).
+- Ejecución:
+- Deploy API (blue-green o canary progresivo)
+- Deploy Workers (controlado; ver 6.2)
+- Habilitar feature flags (si aplica)
+- Verificación post-deploy (p95, error rate, webhook throughput, idempotency collisions)
+- “Release complete” + audit event.
+- 6) Estrategias de release: blue-green / canary
+- 6.1 API (NestJS)
+- Preferido: Blue-Green para cambios sensibles de request path y auth.
+- green recibe tráfico progresivo; si métricas empeoran → rollback instantáneo a blue.
+- Alternativa: Canary por porcentaje + rutas críticas (checkout, payment session, webhook endpoints) protegidas por rate limiting y circuit breaker.
+- 6.2 Workers (BullMQ)
+- No es un “load balancer” tradicional: hay que controlar concurrencia y duplicidad.
+- Canary de workers: levantar worker_vNext con:
+- concurrencia baja,
+- consumo solo de algunas colas o de un “subset” (p.ej. solo notifications primero),
+- DLQ monitor estricto.
+- Regla dura: idempotencia y dedupe obligatorios para jobs y webhooks (por diseño del sistema).
+- 6.3 Panel/Studio + Web Buyer
+- Deploy gradual con cache busting.
+- Compatible con API backwards (no romper DTOs).
+- 7) Migraciones (Postgres + PostGIS) y compatibilidad
+- 7.1 Principio: “expand/contract”
+- Para evitar downtime y permitir rollback de código:
+- Fase Expand: agregar columnas/tablas/índices nuevos (nullable), sin borrar.
+- Backfill: job asíncrono (worker) con checkpointing.
+- Dual-write / Dual-read (temporal): código escribe/lee ambos si aplica.
+- Fase Contract: remover campos viejos solo en release posterior, con ventana y verificación.
+- 7.2 Orden en prod
+- Aplicar migración expand antes o junto con API vNext (si vNext la necesita).
+- Deploy API/Workers que usen el nuevo esquema.
+- Backfill y validación de integridad.
+- Contract en release posterior.
+- 7.3 PostGIS (zonas)
+- Cualquier cambio de geometrías/índices GiST debe ejecutarse con cuidado (lock minimization).
+- Validaciones: no overlaps inválidos, prioridades consistentes (según core de cobertura).
+- 8) Secrets, llaves, y configuración
+- 8.1 Secrets
+- Secrets nunca en repo; solo refs en runtime (KMS/Secret Manager).
+- Rotación:
+- providers (pagos, notifs, maps),
+- webhook signing secrets,
+- signing keys de Camaleón (si aplica).
+- Separación obligatoria:
+- dev/staging/prod,
+- por país cuando aplique.
+- 8.2 Config/Feature flags/UI Camaleón
+- Camaleón se publica vía Studio: draft → preview → publish → rollback con auditoría y time machine.
+- Regla: cambios de UI/config no requieren deploy; son versionados y con ETag/firma/fallback.
+- 9) Rollback (código + DB + UI/config) — reglas canónicas
+- 9.1 Rollback de API
+- Blue-green: revertir tráfico a versión anterior.
+- Canary: bajar porcentaje a 0 y desactivar flags.
+- 9.2 Rollback de workers
+- Escalar a 0 los workers vNext.
+- Reprocesar DLQ solo tras fix.
+- Mantener idempotencia: reintentos no deben duplicar efectos.
+- 9.3 Rollback de DB
+- Regla dura: no se hace “down migration destructiva” en prod salvo break-glass.
+- Rollback se logra con:
+- compatibilidad backwards (expand/contract),
+- feature flags,
+- rollback de código.
+- 9.4 Rollback de Camaleón
+- Rollback por config_version a last-known-good (firma válida).
+- 9.5 Auditoría del rollback
+- Todo rollback debe generar:
+- DEPLOY_ROLLBACK_EXECUTED con reason, scope (env/country), version_from, version_to, approvals.
+- 10) Observabilidad y SLO gates (release gating)
+- Pre-deploy gates (prod):
+- error rate < umbral,
+- p95 latencia < umbral,
+- DLQ depth < umbral,
+- webhook processing lag < umbral,
+- money pipeline sanity (no spikes de mismatch).
+- Post-deploy gates (15–60 min):
+- comparar métricas vs baseline,
+- verificar webhooks RAW ingestion + dedupe,
+- verificar Camaleón fetch y fallback,
+- verificar jobs críticos (pagos/notifs/documents) sin DLQ spike.
+- 11) Compatibilidad con sistemas existentes
+- Integraciones/Webhooks: gateway debe responder rápido, persistir RAW, dedupe y encolar; releases no pueden romper verificación de firma.
+- Auditoría/WORM: cambios de config/UI/flags/deploys/rollbacks y accesos sensibles quedan auditados (append-only).
+- Multi-país: despliegue único; variación por policy/config y scopes, no forks por país.
+- No está definido en la documentación (y se asume como estructura)
+- Proveedor concreto (AWS/GCP/Azure), por lo que “blue-green/canary” se define como patrón y no como implementación específica (ALB/Ingress/etc.).
+- Herramienta exacta de CI (GitHub Actions/GitLab/etc.).
+- Suposición: el proyecto necesita estas abstracciones para cumplir los invariantes definidos en “Estructura” (monolito modular + workers, idempotencia, WORM, Camaleón, multi-país, webhooks RAW, observabilidad).

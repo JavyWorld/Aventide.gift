@@ -1,0 +1,16 @@
+### Release: 2026-02-23-sistemas-transcritos-38x38
+- [x] Gate 1: Invariantes no violados.
+- [x] Gate 2: Contratos API/Event/Data versionados.
+- [x] Gate 3: Runbooks actualizados.
+- [ ] Gate 4: Country policies validadas.
+- [x] Gate 5: Riesgo y rollback definidos.
+- [x] Gate 6: Auditoría/eventos críticos verificados.
+- **Dashboard:** [Documentación índice maestro](https://grafana.aventide.gift/d/platform-structure/dominio-platform-structure-operacion)
+- **Incident Drill:** [Bitácora de validación documental](docs/04-CHANGELOG.md)
+- **Pruebas E2E:** [Cobertura 38/38 transcrita](../07-SISTEMAS-TRANSCRITOS/README.md)
+- **Aprobación legal/regulatoria:** [Pendiente de firma country governance](../03-COUNTRY-POLICIES/README.md)
+- **Aprobador técnico:** Equipo de Arquitectura Documental
+- **Aprobador de negocio/regulatorio:** Dirección de Expansión + Legal/Compliance
+- **Estado de aprobación:** pendiente
+- **Fecha/hora:** 2026-02-23 UTC
+- **Notas:** Se habilita capa espejo `.md` integral para eliminar dependencia operativa del formato `.docx`; retiro físico de `/Sistemas` queda sujeto a aprobación ADR-STR-001 y firma de Gate 4.

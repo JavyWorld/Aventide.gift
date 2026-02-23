@@ -1,0 +1,255 @@
+# moderation · Transcripción integral desde `sistema-de-moderacion-260207_0828.docx`
+
+> Este archivo es una transcripción documental completa del `.docx` histórico para lectura IA/humana en formato Markdown.
+
+## Metadatos
+
+- Fuente original: `Sistemas/sistema-de-moderacion-260207_0828.docx`
+- Dominio canónico asociado: `moderation`
+- Título detectado: Sistema de Moderación v2.0 (Trust & Compliance Engine) — corregido y unificado
+
+## Transcripción
+
+- Sistema de Moderación v2.0 (Trust & Compliance Engine) — corregido y unificado
+- Fuente de verdad: “Sistema de Moderación y Cumplimiento (Trust & Compliance Engine) — Aventide Gift”.
+- 1) Definición y objetivos del sistema/módulo
+- Definición: Moderación es un sistema transversal que gobierna qué contenido UGC puede existir, cuándo se vuelve visible/“válido” y qué consecuencias operativas se aplican al usuario (restricciones, shadowban, ban, reserva de fondos, freeze), manteniendo el marketplace legal, seguro y difícil de abusar. Todo UGC (producto, review, chat, fotos, PoD) pasa por un embudo oficial de 4 capas antes de ser visible o aceptado como evidencia operativa.
+- Objetivos:
+- Evitar contenido ilegal, fraude, spam y “platform leakage” (evasión por contacto/pago directo).
+- Minimizar falsos positivos con risk scoring + revisión humana.
+- Convertir moderación en un sistema auditable (evidencia + reason codes + quién decidió).
+- Integración obligatoria con Reputación/Score, Búsqueda/Ranking, Órdenes/Pagos, Soporte, Auditoría.
+- 2) Alcance (incluye / excluye)
+- Incluye
+- Pipeline 4 capas: IA+Reglas, Risk Engine, Cola humana, Acción+Feedback.
+- Superficies UGC: PRODUCT, PRODUCT_IMAGE, CHAT_MESSAGE, REVIEW, POD_IMAGE, PROFILE.
+- Sistema de reportes (user flagging) con evidencia automática (chat + order context desde audit log).
+- Blacklists/Fingerprinting (device/ip/payment/phone) + shadowban/hard ban.
+- Strike system (sanciones graduales) con efectos cruzados en ranking y pagos.
+- Consola interna de moderación (T&S/Content Moderators) + batch actions.
+- Excluye
+- Motor de reputación en sí (solo consume y escribe “strikes / flags / restrictions”).
+- Motor de pagos (solo modifica policies operativas: rolling reserve/freeze) sin ejecutar movimientos contables.
+- 3) Actores y permisos (RBAC) + guards
+- 3.1 Actores
+- SYSTEM (Capa 1/2): IA, reglas, risk scoring, detección leakage/abuso.
+- CONTENT_MODERATOR: calidad, spam, catálogo, estética, mismatch.
+- TRUST & SAFETY SPECIALIST: fraude, estafa, colusión, ban/freeze.
+- SUPPORT_AGENT: reportes de chat, escalación a T&S.
+- COUNTRY_OPS_LEAD: apelaciones (según doc) + acciones limitadas por país.
+- BUYER/SELLER: generan contenido y reportan.
+- 3.2 Permisos mínimos (namespaces)
+- moderation.queue.read (role-scoped: CONTENT/T&S/APPEAL)
+- moderation.event.read
+- moderation.decision.publish/reject
+- moderation.user.shadowban
+- moderation.user.hardban
+- moderation.user.strike.apply
+- moderation.blacklist.manage
+- moderation.appeals.decide (Country Ops Lead)
+- moderation.batch.actions (T&S)
+- moderation.audit.read (audit/finance/admin)
+- 3.3 Guards (runtime)
+- AuthGuard
+- Role/PermissionGuard
+- ScopeGuard (country/hub/zone en Ops Lead)
+- PolicyGuard (catálogo de reason codes + thresholds por país)
+- EvidenceGuard (no permite decisión humana sin evidence_ref)
+- AuditGuard (append-only)
+- 4) Flujos end-to-end (happy path + edge cases)
+- 4.1 Pipeline oficial de 4 capas (para todo UGC)
+- Capa 1 — IA + Reglas duras (<1s)
+- Se ejecuta en subida/edición y/o pre-publicación según tipo:
+- Visual (AWS Rekognition / Google Vision): desnudos, violencia, armas, texto en imagen (teléfonos/emails/URLs).
+- Texto (NLP/Regex): keywords ofensivas/drogas/competidores, leakage (“pago por fuera”), sanity de precios (anomalias).
+- Salida Capa 1 (recomendación):
+- ALLOW
+- BLOCK (rechazo inmediato con motivo)
+- FLAG (requiere riesgo/humano)
+- Capa 2 — Risk Engine
+- Calcula risk score usando reputación/score del usuario y reglas duras:
+- Seller nuevo (score < 50) ⇒ pre-moderation obligatorio (QUARANTINE).
+- Seller trusted (score > 90) ⇒ post-moderation (AUTO_PUBLISH) con auditorías aleatorias.
+- Salida Capa 2 (decisión operativa):
+- AUTO_PUBLISH
+- QUARANTINE
+- ESCALATE_T&S
+- AUTO_REJECT
+- Capa 3 — Cola humana (The Queue)
+- Content Moderator: catálogo/spam/calidad.
+- Trust & Safety: fraude/estafa/abuso/colusión.
+- Capa 4 — Acción + feedback
+- Acciones ejecutables:
+- PUBLISH
+- REJECT (con motivo educativo)
+- SHADOWBAN
+- HARD_BAN
+- STRIKE_1|2|3
+- Corrección de incoherencia (central):
+- Se separa estrictamente:
+- recommended_action (capas 1/2, automatizado)
+- vs
+- final_action (capa 4, decisión efectiva).
+- Así el sistema es auditable y evita “doble fuente de verdad”.
+- 4.2 Moderación de catálogo (productos)
+- Estado obligatorio de producto:
+- DRAFT → PENDING_REVIEW → (FLAGGED → revisión humana) → ACTIVE
+- Reglas núcleo:
+- Leakage en imagen (teléfono/URL): AUTO_REJECT con mensaje educativo.
+- Category mismatch: IA marca CATEGORY_MISMATCH ⇒ FLAGGED.
+- Price anomaly: bloqueo si desviación absurda (lavado/error).
+- Edge cases
+- Seller trusted: puede AUTO_PUBLISH pero queda sujeto a post-moderation y auditorías aleatorias.
+- Reincidencia leakage: aplica strikes.
+- 4.3 Reportes de usuarios (User Flagging)
+- Happy path
+- Usuario reporta UGC con tipo del catálogo fijo (ilegal, IP, estafa, abuso chat, etc.).
+- Sistema adjunta evidencia contextual automática:
+- Si chat: últimos 10 mensajes + order_id desde Audit Log inmutable (no screenshots).
+- Se prioriza cola:
+- “Estafa” ⇒ Trust & Safety (alta prioridad).
+- Baja severidad ⇒ Content Moderator.
+- 4.4 Blacklists & fingerprinting
+- Entradas mínimas:
+- DEVICE_ID
+- IP_HASH
+- PAYMENT_METHOD_HASH
+- PHONE_NORMALIZED
+- Acciones:
+- SHADOWBAN (evita evasión rápida, usuario no detecta)
+- HARD_BAN (login 403 + vía de contacto)
+- Edge cases
+- IP compartida (cafés/redes): IP_HASH es señal débil (solo ayuda; no es suficiente para hard ban). (Inferencia: consistente con “cuidado por redes públicas”.)
+- 4.5 Strike system (gradual)
+- Strike 1 — Advertencia
+- Causa: teléfono en foto, insulto leve.
+- Consecuencia: borrar contenido + notificación educativa + baja ranking temporal.
+- Strike 2 — Restricción
+- Causa: reincidencia o cancelación masiva.
+- Consecuencia: suspensión 7 días + bloqueo crear productos + rolling reserve 50%.
+- Strike 3 — Terminación
+- Causa: fraude/ilegales/extorsión o 3 strikes.
+- Consecuencia: User.Status=BANNED + congelación total de fondos 180 días (chargebacks).
+- Corrección de incoherencia:
+- Strike Ledger y “funds policy” deben ser derivados y aplicados por policy engine/pagos; moderación no mueve dinero, solo cambia el estado/política (rolling_reserve=50%, freeze=180d).
+- 5) Reglas y políticas (límites, validaciones, catálogos)
+- 5.1 Catálogo de signals (normalizado)
+- signals[] (mínimo):
+- NUDITY, VIOLENCE, WEAPON
+- PHONE_IN_IMAGE, URL_IN_IMAGE
+- LEAKAGE_TEXT, ABUSIVE_LANGUAGE
+- PRICE_ANOMALY, CATEGORY_MISMATCH
+- SCAM, IP_INFRINGEMENT
+- 5.2 reason_code (catálogo fijo)
+- Toda decisión humana o auto-reject debe mapear a reason_code fijo (educativo + auditable).
+- 5.3 Gating por reputación (pre/post moderation)
+- score < 50 ⇒ QUARANTINE
+- score > 90 ⇒ AUTO_PUBLISH
+- Rangos intermedios ⇒ según risk score y signals.
+- 5.4 Reglas runtime obligatorias por punto crítico
+- Crear/editar producto: Capa 1 + 2; si QUARANTINE/FLAGGED ⇒ PENDING_REVIEW/FLAGGED.
+- Subir imagen producto/PoD: Capa 1 visual; leakage en imagen ⇒ reject.
+- Chat: Capa 1 texto; si abuso/leakage confirmado ⇒ habilita reporte + señal a soporte/T&S.
+- Review: si hay disputa abierta ⇒ hold automático hasta resolución.
+- Login/Signup: check fingerprint blacklist ⇒ shadowban/hardban.
+- 6) Modelo de datos (mínimo, implementable)
+- A) ModerationEvent (auto o manual)
+- Campos definidos:
+- id, created_at
+- actor_user_id (creador o reportante)
+- target_user_id (si aplica)
+- content_type, content_id, order_id (si aplica)
+- signals[], ai_confidence
+- risk_score_at_time (snapshot)
+- recommended_action (ALLOW|BLOCK|QUARANTINE|FLAG)
+- final_action (PUBLISH|REJECT|SHADOWBAN|HARD_BAN|STRIKE_1|2|3)
+- reason_code
+- reviewer_role (SYSTEM|CONTENT_MODERATOR|TRUST_SAFETY|SUPPORT_AGENT|COUNTRY_OPS_LEAD)
+- reviewer_user_id
+- evidence_ref (audit-log links, imágenes, hashes)
+- decision_notes (interno)
+- Índices:
+- (content_type,content_id)
+- (target_user_id,created_at desc)
+- (final_action,created_at desc)
+- (reason_code,created_at desc)
+- B) ModerationCase (cola humana / apelación)
+- id
+- queue_type (CONTENT|TRUST_SAFETY|APPEAL)
+- priority
+- status (OPEN|NEEDS_INFO|DECIDED|CLOSED)
+- linked_events[]
+- sla_deadline_at
+- outcome
+- C) BlacklistEntry
+- type (DEVICE_ID|IP_HASH|PAYMENT_METHOD_HASH|PHONE_NORMALIZED)
+- value_hash
+- severity (SHADOWBAN|HARD_BAN)
+- created_at, expires_at?
+- created_by (T&S)
+- notes
+- D) StrikeLedger
+- user_id
+- strike_count
+- last_strike_at
+- active_restrictions[]
+- funds_policy (normal|rolling_reserve_50|freeze_180d)
+- Corrección de incoherencia: StrikeLedger es proyección; los cambios reales ocurren vía eventos STRIKE_APPLIED + policy engine que setea flags en user_status y seller_operational_flags.
+- 7) Eventos y triggers + idempotencia
+- Eventos mínimos
+- MODERATION_SIGNAL_DETECTED
+- MODERATION_QUARANTINED
+- MODERATION_PUBLISHED
+- MODERATION_REJECTED
+- USER_SHADOWBANNED
+- USER_HARDBANNED
+- STRIKE_APPLIED
+- APPEAL_OPENED/DECIDED
+- BLACKLIST_ADDED/REMOVED
+- Idempotencia
+- Por contenido: event_key = (content_type, content_id, change_version) evita doble moderación por reintentos.
+- Por strike: strike_key = (user_id, reason_code, window) evita doble strike por el mismo hecho.
+- 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+- Reputación/Score (Risk Engine)
+- Input: user_score, historial strikes.
+- Output: premoderation_required / audit_sampling_rate.
+- Búsqueda/Ranking
+- Strike 1 baja ranking temporal.
+- Shadowban saca contenido de índices.
+- Órdenes/Pagos
+- Strike 2 ⇒ rolling_reserve=50%
+- Strike 3 ⇒ freeze=180d (chargebacks).
+- Soporte
+- Reportes de chat anexan evidencia desde Audit Log (últimos 10 mensajes + order_id).
+- Auditoría WORM
+- evidence_ref apunta a paquetes WORM (PoD, chat, hashes).
+- 9) Observabilidad (logs, métricas, alertas, SLOs)
+- Métricas mínimas
+- moderation_events_total{content_type,recommended_action}
+- moderation_final_actions_total{final_action,reason_code}
+- false_positive_rate_estimate (por sampling)
+- queue_depth{queue_type}
+- sla_breach_total{queue_type}
+- strike_applied_total{level,reason_code}
+- blacklist_hits_total{type,severity}
+- Alertas
+- Spike en PHONE_IN_IMAGE/LEAKAGE_TEXT (ataque de evasión)
+- Crecimiento de queue_depth (riesgo operativo)
+- sla_breach_total > umbral
+- Spike de blacklist_hits_total (bot wave)
+- 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+- Toda decisión humana requiere reason_code + evidence_ref + reviewer_user_id + timestamp.
+- Chats reportados: evidencia sale de Audit Log inmutable; screenshots no son aceptados como base.
+- Blacklist entries guardan hashes/valores normalizados (no PII cruda), con expiración opcional y notas.
+- 11) Compatibilidad con sistemas existentes (dependencias directas)
+- Contenido/Catálogo: estados DRAFT/PENDING_REVIEW/FLAGGED/ACTIVE.
+- Búsqueda: ranking/shadowban y remoción de índice por strike/ban.
+- Órdenes/Pagos: rolling reserve 50% (Strike 2), freeze 180d (Strike 3) vía flags/policy.
+- Soporte/Disputas: hold de reviews durante disputa; reportes de chat con evidencia.
+- Observabilidad: métricas por signals/colas y alertas por waves.
+- Conflictos/incoherencias corregidas (dentro de Moderación)
+- Recomendación vs decisión mezcladas → separado recommended_action vs final_action con auditoría completa.
+- Moderación “mueve dinero” → eliminado: moderación solo setea flags/policies (rolling reserve/freeze), pagos ejecuta.
+- Reportes basados en screenshots → eliminado: chat reportado siempre adjunta mensajes reales desde Audit Log.
+- Ban fácil de evadir → corregido: fingerprint blacklists + shadowban/hard ban.
+- Strikes sin efectos coherentes → corregido: tabla de efectos cruzados (ranking, creación productos, reserve, freeze) y StrikeLedger auditable.

@@ -10,6 +10,7 @@
 - [04-CHANGELOG](./04-CHANGELOG.md)
 - [05-DEPLOY-GATES](./05-DEPLOY-GATES.md)
 - [06-MASTER-BLUEPRINT](./06-MASTER-BLUEPRINT.md) · puerta de entrada onboarding IA/humano
+- [07-SISTEMAS-TRANSCRITOS](./07-SISTEMAS-TRANSCRITOS/) · espejo Markdown 38/38 de `Sistemas/*.docx`
 
 ---
 
@@ -32,7 +33,7 @@ Estados permitidos para seguimiento: `pendiente` · `en curso` · `cerrado`.
 ## 1.1) Política de transición de fuentes
 
 - **Fase A (vigente como respaldo histórico):** los `.docx` en `Sistemas/*.docx` se conservan como respaldo de origen.
-- **Fase B (vigente como fuente operativa):** la documentación canónica en `docs/` y `docs/02-DOMAINS/*` es la fuente de trabajo para operación, cambios y revisiones.
+- **Fase B (vigente como fuente operativa):** la documentación canónica en `docs/`, `docs/02-DOMAINS/*` y el espejo completo `docs/07-SISTEMAS-TRANSCRITOS/*` es la fuente de trabajo para operación, cambios y revisiones.
 - **Fase C (objetivo):** retiro de `/Sistemas` cuando todos los dominios cumplan criterios de paridad y exista validación integral registrada.
 
 ## 1.2) Criterios de paridad para retirar `/Sistemas`

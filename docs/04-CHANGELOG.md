@@ -45,3 +45,15 @@ Cada entrada debe incluir:
 - **Estado de aprobación del release:** aprobado
 - **Registro de gate:** `docs/releases/2026-02-20-doc-governance-baseline.md`
 - **Rollback:** Revertir cambios documentales si se reemplaza por un estándar superior aprobado por arquitectura.
+
+
+### [2026-02-23] - Documentación transcrita 38/38 de sistemas históricos - non-breaking
+- **Resumen:** Se crea `docs/07-SISTEMAS-TRANSCRITOS/` con 38 archivos `.md` (uno por sistema histórico en `Sistemas/*.docx`) y un índice de cobertura integral para lectura IA/humana sin depender del formato `.docx`.
+- **ADR relacionada:** [ADR-STR-001](./01-ADR/ADR-STR-001-criterio-retiro-sistemas.md)
+- **Migraciones requeridas:** No
+- **Detalle de migraciones:** No aplica (cambio documental).
+- **Impacto esperado:** Mejora de trazabilidad y accesibilidad documental cross-domain; se mantiene compatibilidad con fuentes históricas.
+- **Release ID:** 2026-02-23-sistemas-transcritos-38x38
+- **Estado de aprobación del release:** pendiente
+- **Registro de gate:** `docs/releases/2026-02-23-sistemas-transcritos-38x38.md`
+- **Rollback:** Eliminar `docs/07-SISTEMAS-TRANSCRITOS/` y revertir referencias en `docs/00-INDEX.md` y `docs/06-MASTER-BLUEPRINT.md`.
