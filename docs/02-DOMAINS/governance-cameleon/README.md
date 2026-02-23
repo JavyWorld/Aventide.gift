@@ -51,6 +51,34 @@
 - Documento origen: `Sistema Gobernanza multi-país + App Camaleón.docx`
 - Título extraído: "Sistema de Gobernanza multi-país + App Camaleón v2.0 (Policy Engine + Server-Driven UI) — corregido y unificado".
 
+## Flujo de enrutamiento multi-dominio
+
+### 1. Entrada
+
+- Request llega por `aventide.xx` o `aventide.com`.
+- Captura de señales: host, IP-country, `Accept-Language`, cookie de preferencia.
+
+### 2. Resolución
+
+- Prioridad: preferencia explícita de usuario > dominio solicitado > geosugerencia.
+- Resultado: `resolved_country`, `resolved_tenant`, `policy_context`.
+
+### 3. Acción
+
+- Si host global (`aventide.com`): mostrar sugerencia o redirigir solo homepage.
+- Si host país: mantener host y cargar configuración local (sin bucles de redirección).
+
+### 4. Integración
+
+- governance-cameleon devuelve reglas/UI profile por `country_code`.
+- geo-intelligence-map provee señales auxiliares (no decisión final de UX por sí solo).
+
+### 5. Guardrails
+
+- fallback cuando geolocalización falla.
+- override manual de país siempre disponible.
+- auditoría de decisiones de routing para troubleshooting.
+
 ## Checklist de calidad documental
 
 - [x] Completitud: secciones obligatorias del archivo cubiertas.
