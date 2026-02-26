@@ -1,0 +1,501 @@
+### Sistema de Integraciones v2.0 (Integration Ecosystem) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Integraciones (Integration Ecosystem) — Proveedores, Webhooks, Adapters, Workers, Auditoría”.\
+**Dependencia estructural:** Auditoría Unificada (WORM, atribución, evidencia).
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Capa central que conecta el Core Aventide con proveedores externos (Pagos, Mensajería, Maps/Geocoding, Storage, Tax, etc.) bajo un patrón **Hub & Spoke**:
+
+- El **Core decide** (lógica, estados, políticas).
+
+- El **Ledger/Audit registra** intención y evidencia.
+
+- Un pool de **Workers asíncronos** ejecuta llamadas externas y procesa confirmaciones vía **Webhooks**.
+
+**Objetivos (duros):**
+
+1. Evitar “conectar todo con todo”: integraciones pasan por registry + adapters + workers.
+
+2. No bloquear UX: llamadas externas críticas nunca se ejecutan en request síncrono (salvo validate liviano).
+
+3. Evidencia y reconciliación: webhooks **raw** almacenados, dedupe, idempotencia y logs por handler.
+
+4. Anti-lock-in: interfaces internas estables y adapters por proveedor.
+
+5. Seguridad: secrets en KMS/Secret Manager; frontend nunca habla directo con proveedores para acciones críticas.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- **Integration Registry** por país y tipo: qué proveedor está activo, timeouts, rate limits, retry policy y secrets refs.
+
+- **Adapters por proveedor**: PaymentsProvider, MessagingProvider, MapsProvider, StorageProvider + WebhookVerifier.
+
+- **Workers asíncronos** (payments-worker, notifications-worker, geo-worker, storage-worker).
+
+- **Webhook Gateway inbound**: verificación firma, persistencia RAW, dedupe, encolado y procesamiento idempotente.
+
+- **Outbound webhooks** a partners (si aplica): HMAC, retries, DLQ, payload con event_id/idempotency.
+
+- Cross-cutting: circuit breaker, DLQ, métricas por proveedor, reconciliación money.
+
+### Excluye
+
+- Definir lógica de negocio de pagos/disputas/notificaciones (eso vive en sus sistemas). Aquí solo se definen contratos y ejecución externa.
+
+- UI del inbox y templates (Notificaciones).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **SYSTEM/WORKERS:** ejecutan jobs y procesan webhooks.
+
+- **COUNTRY_OPS_LEAD / ADMIN:** activan/desactivan proveedores, configuran rate limits, rotan secrets, revisan DLQ.
+
+- **FINANCE/AUDIT:** lectura de reconciliación y evidencia (pagos).
+
+- **SUPPORT/T&S:** lectura de evidencia raw en disputas/mismatches (scoped).
+
+### 3.2 Permisos mínimos
+
+- `integrations.registry.read`
+
+- `integrations.registry.write` (ops lead scoped / admin)
+
+- `integrations.secrets.rotate` (admin; auditado)
+
+- `integrations.webhooks.raw.read` (support/finance; auditado)
+
+- `integrations.jobs.retry` (ops/support; auditado)
+
+- `integrations.dlq.read` / `integrations.dlq.replay` (ops)
+
+- `integrations.adapters.execute` (solo system)
+
+- `integrations.audit.read` (audit/finance/admin)
+
+### 3.3 Guards
+
+1. AuthGuard
+
+2. ScopeGuard (country_code obligatorio para config/lecturas internas)
+
+3. SecretRefGuard (nunca secrets en texto; solo refs)
+
+4. WebhookSignatureGuard (verificación obligatoria por proveedor/país)
+
+5. IdempotencyGuard (jobs y webhooks)
+
+6. AuditGuard (cada llamada externa relevante y cada lectura sensible quedan auditadas)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Registrar intención → ejecutar externo (Proxy Pattern)
+
+**Happy path (pagos como ejemplo)**
+
+1. Core decide acción crítica (p.ej. `CAPTURE_TO_ESCROW`).
+
+2. Antes de llamar al proveedor, registra intención en Ledger/Audit (“observed vs expected”).
+
+3. Encola job al `payments-worker` con `idempotency_key`.
+
+4. Worker ejecuta adapter (RapydAdapter) con timeout + retry/backoff + circuit breaker.
+
+5. Resultado se persiste y se esperan webhooks para confirmación (cuando aplique).
+
+**Edge cases**
+
+- Proveedor caído: circuit breaker → job a retry con backoff; si excede, DLQ + alerta.
+
+- Doble job: idempotency_key evita doble efecto.
+
+### 4.2 Webhook inbound (Gateway único) — confirmación y reconciliación
+
+**Happy path**
+
+1. Proveedor pega a `POST /webhooks/{provider}`.
+
+2. Gateway:
+
+- verifica firma (secret por país/proveedor),
+
+- guarda `raw_payload` tal cual (evidencia),
+
+- dedupe por `(provider_event_id + country_code)` o `dedupe_key`,
+
+- responde 200 rápido,
+
+- encola procesamiento.
+
+1. Worker de webhook normaliza payload a evento interno y actualiza “observed vs expected” del ledger.
+
+**Edge cases**
+
+- Duplicados por retry del proveedor: dedupe responde OK sin repetir efectos.
+
+- Firma inválida: registrar `WEBHOOK_SIGNATURE_INVALID` y no procesar.
+
+### 4.3 Mensajería externa (WhatsApp/SMS/Email/Push)
+
+**Happy path**
+
+- Notification Worker decide canal y usa adapters:
+
+    - Push: FCM
+
+    - WhatsApp: WABA (Meta) o Twilio
+
+    - Email: SendGrid/SES
+
+- Guarda `provider_message_id`, estado y errores.
+
+- Webhooks de delivery (si existen) entran por gateway y actualizan delivery logs.
+
+**Edge cases**
+
+- P0 críticos: fallback automático push → WhatsApp/SMS → email.
+
+- Rate limit del proveedor: throttle por país y cola; no saturar.
+
+### 4.4 Geo Integrations (Maps/Geocoding)
+
+**Happy path**
+
+- Places: autocompletar/normalizar y validar direcciones (lat/long obligatoria).
+
+- Distance Matrix: distancia para cobertura y para validación de PIN por distancia (rechazar si >300m).
+
+**Edge cases**
+
+- Quota excedida: `MAPS_QUOTA_EXCEEDED` por país, activar budget caps y degradación (p.ej. no permitir nuevas cuentas sin validación).
+
+### 4.5 Storage (S3/GCS) + Evidencia WORM
+
+**Happy path**
+
+- `init_upload` → URL prefirmada
+
+- `complete_upload` → valida checksum, fija metadata, aplica retención/WORM
+
+- `issue_signed_url` → solo si RBAC/ABAC permite
+
+- Object Lock/WORM para PoD y exportes de auditoría.
+
+**Edge cases**
+
+- Prohibido overwrite/delete antes de retención en WORM.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Principio rector (arquitectura)
+
+- Hub & Spoke obligatorio: Core decide, Ledger/Audit registra, Workers ejecutan.
+
+### 5.2 Regla dura: Frontend nunca llama proveedores para acciones críticas
+
+- Checkout y money actions pasan por backend proxy.
+
+### 5.3 Idempotencia como ley (jobs + webhooks)
+
+- Cada job externo debe tener `idempotency_key`.
+
+- Webhooks dedupe por `provider_event_id` o `dedupe_key`; duplicados responden OK sin efectos.
+
+### 5.4 Guardar webhooks RAW (evidencia no negociable)
+
+- El raw_payload puede ser la única evidencia en disputas y reconciliación.
+
+### 5.5 Resiliencia
+
+- Retries con backoff por proveedor.
+
+- Circuit breaker.
+
+- DLQ + alertas.
+
+### 5.6 Rate limits y budgets por país
+
+- Rate limits por proveedor/endpoint desde Integration Registry.
+
+- Budget caps por país para Maps/externos.
+
+### 5.7 Seguridad de secretos
+
+- Secrets en KMS/Secret Manager; separación sandbox/prod por país; ip allowlist en webhooks si el proveedor lo soporta.
+
+### 5.8 Auditoría obligatoria
+
+- “Se movió dinero / se envió SMS / se validó GPS / se emitió signed URL” deben quedar auditados con `User_ID` o `Service_ID`.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 integration_registry
+
+Campos explícitos
+
+- `country_code`
+
+- `integration_type` (PAYMENTS, WHATSAPP, SMS, EMAIL, MAPS, STORAGE, TAX, …)
+
+- `provider`
+
+- `env` (sandbox/prod)
+
+- `enabled`
+
+- `rate_limits_json`
+
+- `webhook_secret_ref`, `api_key_secret_ref`
+
+- `default_timeout_ms`
+
+- `retry_policy_id`
+
+Índices:
+
+- unique(`country_code`,`integration_type`)
+
+- (`enabled`,`country_code`)
+
+### 6.2 provider_events (webhooks RAW)
+
+Campos explícitos
+
+- `provider`
+
+- `country_code`
+
+- `external_event_id`
+
+- `received_at`
+
+- `raw_payload`
+
+- `signature_valid`
+
+- `dedupe_key`
+
+- `processed_status` (PENDING/PROCESSED/FAILED)
+
+Índices:
+
+- unique(`provider`,`country_code`,`external_event_id`)
+
+- (`processed_status`,`received_at desc`)
+
+- (`dedupe_key`)
+
+### 6.3 webhook_process_log
+
+Campos explícitos
+
+- `event_ref`
+
+- `handler`
+
+- `attempt`
+
+- `result`
+
+- `error_code`
+
+- `processed_at`
+
+Índices:
+
+- (`event_ref`,`attempt desc`)
+
+- (`handler`,`processed_at desc`)
+
+### 6.4 integration_jobs (outbox/queue tracking interno)
+
+**Suposición:** el doc define workers/cola/DLQ pero no fija tabla; se agrega un tracking mínimo consistente.
+
+- `job_id`
+
+- `job_type` (CREATE_PAYMENT_SESSION, CAPTURE_TO_ESCROW, SEND_WHATSAPP, GEO_VALIDATE, ISSUE_SIGNED_URL…)
+
+- `country_code`, `provider`
+
+- `idempotency_key`
+
+- `payload_json`
+
+- `status` (QUEUED|RUNNING|SUCCEEDED|FAILED|DLQ)
+
+- `attempt`, `next_retry_at`
+
+- `last_error_code`
+
+- `created_at`
+
+Índices:
+
+- unique(`idempotency_key`)
+
+- (`status`,`next_retry_at`)
+
+- (`provider`,`status`)
+
+### 6.5 outbound_webhook_subscriptions (si aplica)
+
+Campos explícitos
+
+- `partner_id`
+
+- `event_types[]`
+
+- `url`
+
+- `secret`
+
+- `enabled`
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos
+
+- `INTEGRATION_PROVIDER_CHANGED` (registry)
+
+- `WEBHOOK_RECEIVED_RAW`
+
+- `WEBHOOK_SIGNATURE_INVALID`
+
+- `WEBHOOK_PROCESSED` / `WEBHOOK_PROCESS_FAILED`
+
+- `INTEGRATION_JOB_ENQUEUED` / `JOB_SUCCEEDED` / `JOB_FAILED` / `JOB_DLQ`
+
+- `PROVIDER_OUTAGE_DETECTED` (circuit breaker abierto)
+
+- `RECONCILIATION_MISMATCH_DETECTED` (money)
+
+### Idempotencia (reglas duras)
+
+- Webhooks: `(provider, country_code, external_event_id)` unique.
+
+- Jobs: `idempotency_key` unique por intención de negocio.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Pagos (Rapyd) — patrón oficial
+
+Módulos y flujo
+
+- Collect: `CREATE_PAYMENT_SESSION(order_id)` (token/url al frontend)
+
+- Wallets (escrow): `CAPTURE_TO_ESCROW(payment_id)`
+
+- Disburse (payouts): `EXECUTE_PAYOUT(seller_id, amount)`\
+    Regla:
+
+- Core registra intención en ledger antes de ejecutar con Rapyd.
+
+### Comunicaciones (FCM/WhatsApp/SMS/Email)
+
+- Notification Worker orquesta; adapters ejecutan; delivery webhooks actualizan logs.
+
+### Geo (Google Maps/Mapbox)
+
+- Places + Distance Matrix; caching TTL por place_id y por par latlng; budget caps.
+
+### Storage (S3/GCS)
+
+- Signed URLs + metadata + WORM/Object Lock.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `provider_latency_ms_p95{provider,endpoint,country}`
+
+- `provider_error_rate{provider,country}`
+
+- `jobs_retry_total{provider,job_type,country}`
+
+- `dlq_depth{provider,job_type,country}`
+
+- `webhooks_received_total{provider,country}`
+
+- `webhooks_duplicate_total{provider,country}`
+
+- `webhooks_signature_invalid_total{provider,country}`
+
+- `reconciliation_mismatch_total{provider,country}`
+
+- `maps_quota_exceeded_total{country}`
+
+- `payout_failed_total{country}`
+
+### Alertas
+
+- Spike `WEBHOOK_SIGNATURE_INVALID`
+
+- DLQ creciendo
+
+- `PAYOUT_FAILED` spike
+
+- `MAPS_QUOTA_EXCEEDED` por país
+
+- Mismatch financiero mayor a umbral (“>$X centavos”)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Secrets siempre por reference; nunca hardcode.
+
+- Separación sandbox/prod por país.
+
+- IP allowlist/denylist en gateway (si aplica).
+
+- Guardar webhooks raw como evidencia de auditoría; accesos sensibles registran `VIEW_SENSITIVE`.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Pagos/Ledger/Reconciliación:** el Core define “expected”; webhooks actualizan “observed” y generan mismatches.
+
+- **Notificaciones:** Notification Worker usa proveedores como radios (FCM/WhatsApp/Email) con fallback.
+
+- **Cobertura/Seguridad de entrega:** Maps sostiene geocercas y validación de PIN por distancia (300m).
+
+- **Archivos/Auditoría:** Storage WORM protege PoD y exportes; auditoría WORM registra accesos y acciones.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Integraciones)
+
+1. **Integrar “todo con todo” (acoplamiento caótico)** → corregido: Hub & Spoke con Core + Ledger/Audit + Workers.
+
+2. **Frontend llamando directo a proveedores (riesgo dinero/abuso)** → prohibido: backend proxy para acciones críticas.
+
+3. **Webhooks sin evidencia** → corregido: persistencia RAW obligatoria + logs de procesamiento.
+
+4. **Duplicados causando dobles efectos** → corregido: idempotencia en jobs + dedupe en webhooks (responder OK sin repetir).
+
+5. **Fallas de proveedor bloqueando UX** → corregido: workers asíncronos + retries/backoff + circuit breaker + DLQ.
+
+6. **Sin auditoría de llamadas externas** → corregido: cada acción relevante (mover dinero, validar GPS, enviar SMS) queda trazable con actor y evidencia.

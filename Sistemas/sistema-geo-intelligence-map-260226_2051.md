@@ -1,0 +1,272 @@
+## Sistema: Geo Intelligence Map (Geofencing + Heatmaps + Penetración Poblacional) v2.0
+
+**Base en documentación:** el proyecto ya define explícitamente un “Mapa global/territorial” con **capas, heatmaps, PostGIS + H3/tiles, RBAC por country scope, y anti-PII**, y su UX (macro→micro).
+
+---
+
+### 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Geo Intelligence Map es un sistema independiente del Panel (Regional OS + SuperAdmin) que ofrece:
+
+- Visualización de **territorio** (país/hub/zona) basado en **polígonos PostGIS**.
+
+- **Heatmaps/KPIs** por densidad regional (órdenes, GMV, problemas, capacidad, etc.) renderizados por **grid H3/tiles** (no por puntos individuales).
+
+- Capa de **cobertura** (zonas operativas, estado, y superposición de cobertura de sellers).
+
+- Extensión: **población/densidad poblacional oficial** + **usuarios GPS-verificados** agregados (penetración), siempre anti-PII.
+
+**Objetivos (duros):**
+
+1. **Ops Lead** ve el mapa **solo dentro de su operación** (país completo, zonas activas e inactivas visibles) y opera cambios permitidos (ej. estado de zona).
+
+2. **SuperAdmin/Global Management** ve el **mundo completo** y puede “drill down” Mundo→País→Hub→Zona→Seller.
+
+3. Heatmaps y capas deben ser **performantes** y **anti-PII**: nunca pintar usuarios individuales; todo agregado por grid H3/tiles.
+
+4. Integración multi-país: datasets de población deben ser **pluggable por país** (adapter por país) y versionados/rollback si falla ingesta.
+
+---
+
+### 2) Alcance (incluye / excluye)
+
+Incluye
+
+- **Mapa Global** (world view) y vistas por país (deep dive).
+
+- **Capas toggleables**: zonas (polígonos y estado), sellers (pins/clusters), heatmaps de KPIs (orders, GMV, problemas), cobertura y gaps, lead-time risk, etc.
+
+- **Operación de zona**: cambiar estado de zona (kill switch / paused / saturated) desde el mapa, con motivo y auditoría.
+
+- **Zonas de exclusión (geofencing restrictivo)** dibujables por Ops Lead dentro de su país (para bloquear registro/órdenes si punto cae dentro).
+
+- **Densidad poblacional oficial + penetración** (población, usuarios GPS-verificados, penetración) agregados por grid, y visibles en tooltips/panel.
+
+Excluye
+
+- Mostrar puntos de usuarios/direcciones individuales (prohibido).
+
+- “Predicciones ML” (solo métricas derivadas/estimadas desde actividad real + datasets oficiales).
+
+---
+
+### 3) Actores, permisos (RBAC) y guards
+
+Roles
+
+- **SUPERADMIN / Global Management**: lectura global + administración territorial (crear/editar país/hubs/zones).
+
+- **COUNTRY_OPS_LEAD** (scoped): lectura del mapa **solo de su país**; operar estado de zonas; crear/gestionar exclusion_zones.
+
+- (Opcional) **ANALYST** (scoped): solo lectura de capas/métricas del país.
+
+Guards (orden canónico)
+
+`Auth → Role → Scope → Permission → Policy`
+
+Regla “solo ve su operación”
+
+- Todas las APIs de mapa/tiles exigen `country_code` y pasan por **ScopeGuard**: `countryCode ∈ scopes.countries[]` (y opcional `hub_id ∈ scopes.hubs[]`).
+
+Gobernanza de edición de polígonos (conflicto resuelto)
+
+Existe conflicto en docs sobre “quién dibuja zonas”; la resolución propuesta es:
+
+- **SuperAdmin** crea/edita zonas (polígonos base).
+
+- **Ops Lead** NO crea/elimina zonas; solo opera `zone.update_status`.
+
+- Si el Ops Lead “dibuja”, lo hace en **exclusion_zones** (geofencing restrictivo).
+
+---
+
+### 4) Flujos end-to-end (happy path + edge cases)
+
+4.1 Vista Global (SuperAdmin/Global Management)
+
+1. Entra a `/sa/geo/world` (mapa global).
+
+2. Selecciona capas: heatmap órdenes/GMV/problemas, sellers, cobertura (polígonos), gaps, lead-time risk.
+
+3. Zoom macro→micro: Mundo→País→Hub→Zona→Seller; hover con KPIs; click abre side panel con tabs (Overview/Sellers/Orders/Risk/Campaigns/Coverage gaps).
+
+**Edge:** mapa incluye zonas inactivas (no se ocultan, cambian simbología). Esto aplica también en vista país para expansion planning.
+
+4.2 Vista País (Country Ops Lead)
+
+1. Entra al panel “Territorio & Cobertura” y ve **todo su país** con zonas activas/inactivas visibles.
+
+2. Toggle heatmaps (orders_count, gmv, etc.) y capas de sellers/cobertura.
+
+3. Click zona → drawer/panel contextual → puede cambiar **estado operativo** (ACTIVE/PAUSED/SATURATED/CREATED_INACTIVE) si tiene permiso `zone.update_status`, registrando motivo y auditoría append-only.
+
+**Edge (enforcement hard):**
+
+- Si `Zone.Status != ACTIVE` se bloquea compra/checkout y se ocultan sellers según reglas de kill switch; el mapa es el control operativo visible de esa disponibilidad.
+
+4.3 Zonas de exclusión (geofencing restrictivo)
+
+1. Ops Lead dibuja `exclusion_zone` (polígono) dentro de su país (y opcional hub).
+
+2. Efecto: si punto cae dentro (active) ⇒ bloquear registro seller y órdenes (enforcement por Geo/Policy guard).
+
+3. No se borra histórico: se desactiva (disabled_at), auditado.
+
+4.4 Población oficial + penetración (expansión)
+
+1. Geo-worker ingesta dataset oficial por país (adapter por país), asigna `census_dataset_version`, y recalcula población/densidad por H3.
+
+2. Pipeline de usuarios: consume eventos de órdenes geolocalizadas y agrega `gps_verified_users` por H3/ventana temporal (30d/90d).
+
+3. UI muestra en tooltip/panel: población estimada X, usuarios Y, penetración Z% (permitiendo >100%).
+
+---
+
+### 5) Reglas y políticas (límites, validaciones, privacidad)
+
+5.1 Anti-PII (regla dura)
+
+- Prohibido pintar usuarios individuales; solo agregación por grid H3 por zoom (tiles).
+
+5.2 Penetración > 100%
+
+- Permitido y visible (etiqueta/explicación: turismo/commuters/sesgo).
+
+5.3 Performance y serving
+
+- No hacer queries ad-hoc de polígonos complejos en cada pan/zoom; servir tiles/celdas agregadas, cache por zoom/country. (Explicitado como problema real a anticipar).
+
+5.4 Versionado/rollback de capas
+
+- Capas del mapa son datasets versionados; población debe tener `census_dataset_version`; el mapa sirve “current” por país con rollback si falla ingesta (patrón resiliencia).
+
+---
+
+### 6) Modelo de datos (mínimo compatible)
+
+6.1 Geo core (PostGIS)
+
+- `countries(iso_code, geom MultiPolygon, ...)`
+
+- `hubs(country_code, geom optional, ...)`
+
+- `zones(country_code, hub_id, geom, status, priority, name, ...)` con índice GiST + validación overlaps.
+
+6.2 Exclusiones (Ops Lead)
+
+- `exclusion_zones(id, country_id, hub_id nullable, geom, reason_code, active, created_by_staff_id, created_at, disabled_at)`
+
+- Índices: `GiST(geom)`, `(country_id, active)`
+
+6.3 Cobertura seller (para “intensidad”)
+
+- `seller_coverage(seller_id, country_id, hub_id, coverage_geom, status, updated_at)` + GiST(coverage_geom).
+
+6.4 Agregados de KPIs (heatmap)
+
+- `geo_metrics_agg(country_code, hub_id, cell_id, window_start, window_end, orders, gmv, cancels, late, refunds, active_sellers, capacity_units, updated_at)`
+
+6.5 Población / usuarios (penetración)
+
+- `geo_population_agg(country_code, hub_id, cell_id, census_dataset_version, population_est, area_km2, pop_density)`
+
+- `geo_users_agg(country_code, hub_id, cell_id, window_start, window_end, gps_verified_users)`
+
+---
+
+### 7) Eventos y triggers (pipelines) + idempotencia
+
+7.1 Agregación interna (orders/disputes/users/cobertura)
+
+- Consumir eventos `order_created/paid/delivered/canceled/dispute_opened`, normalizar hub/zone por point-in-polygon, actualizar agregados incrementalmente.
+
+7.2 Ingesta de población (nuevo)
+
+- Worker `geo-worker` diario/semanal descarga dataset oficial, guarda `dataset_version`, recalcula `geo_population_agg`.
+
+- Idempotencia: `(country_code, dataset_version, cell_id)`
+
+---
+
+### 8) Integraciones (Map UI + Census/Population Provider)
+
+8.1 Map UI (proveedor visual)
+
+- Mobile: `react-native-maps` (Google) o Mapbox GL; Web Panels: Mapbox/Google (la doc no fija librería web, fija patrón Map UI + PostGIS + H3/tiles).
+
+8.2 “Census/Population Provider” (por país, pluggable)
+
+La documentación afirma explícitamente que **NO está definido** qué fuente oficial exacta usar por país y que debe ser **pluggable por país (adapter)**, no hardcodeado.
+
+**Contrato técnico propuesto (establecerlo como parte del sistema, sin inventar datasets específicos):**
+
+- `PopulationProviderAdapter(country_code)`
+
+    - `fetch_dataset(request): { raw_file_uri, dataset_version, metadata }`
+
+    - `validate(raw): schema + checksums + coverage`
+
+    - `normalize_to_h3(raw, resolution_set): rows(cell_id, population_est, area_km2, pop_density)`
+
+- Registro en **Integration Registry** por país:
+
+    - `provider_name`
+
+    - `download_method` (API/FTP/portal)
+
+    - `auth` (si aplica)
+
+    - `refresh_period` (weekly/monthly)
+
+    - `license/terms_ref` (para auditoría/legal)
+
+    - `fallback_policy` (last-known-good dataset_version)
+
+**Fallback/rollback:** si falla ingesta, mantener `dataset_version_current` y alertar; permitir rollback explícito auditado.
+
+---
+
+### 9) Observabilidad (logs, métricas, alertas)
+
+Métricas mínimas definidas:
+
+- `population_ingest_success_rate`, `population_ingest_latency`, `population_dataset_version_current`
+
+- `geo_tiles_p95_latency`, `geo_agg_lag_seconds`\
+    Alertas: ingesta fallida en país activo, tiles lentos en panel Ops.
+
+---
+
+### 10) Seguridad y auditoría
+
+- Cambios de `zone.update_status`, creación/edición de `exclusion_zones`, y overrides de datasets/versiones ⇒ auditoría append-only (WORM).
+
+- Export (snapshot PNG/PDF + CSV agregados) debe quedar auditado como acceso/acción sensible (no exportar PII).
+
+---
+
+### 11) Compatibilidad con sistemas existentes
+
+- **Geo Core** (PostGIS countries/hubs/zones) es prerequisito de mapas y enforcement de disponibilidad en checkout.
+
+- **Analytics backbone** alimenta `geo_metrics_agg` y heatmaps; el mapa consume agregados, no eventos crudos.
+
+- **RBAC + Scope + Policy** filtra mapa por país/hub y evita “ver el mundo” al Ops Lead.
+
+---
+
+### Conflictos/incoherencias corregidas (y decisión oficial del sistema)
+
+1. “Ops Lead dibuja zonas” vs “Ops Lead no crea zonas” → queda oficial: **SuperAdmin crea/edita zonas**, Ops Lead **solo opera status**; el “dibujo” permitido al Ops Lead es **exclusion_zones**.
+
+2. Riesgo de PII (pintar usuarios) → queda oficial: solo **agregación por grid H3/tiles**, nunca usuarios individuales.
+
+3. Performance por polígonos complejos → queda oficial: **tiles/celdas agregadas** + cache por zoom/country.
+
+---
+
+### Lo que NO está definido y queda establecido como “pluggable”
+
+- Fuentes oficiales concretas por país (URLs/APIs/datasets). La doc lo marca como no definido y exige adapter por país.
+
+Si quieres que quede 100% cerrado “por país” (CO/USA/RD), hace falta que indiques qué fuente oficial usar en cada uno; el sistema ya queda definido para soportarlo vía Integration Registry + adapters + versionado/rollback.

@@ -1,0 +1,385 @@
+### Sistema de Observabilidad v2.0 (SRE / “Sistema Nervioso Central”) — corregido y unificado
+
+**Fuentes de verdad:**
+
+- “Observabilidad (SRE) — Especificación Técnica”
+
+- “Sistema— Observabilidad + Resiliencia (SRE / ‘Sistema Nervioso Central’)”
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Observabilidad es el sistema que hace la plataforma **medible, auto-diagnosticable, auditada y recuperable**, con telemetría completa (logs, métricas, trazas, health checks y alertas) y resiliencia (retries, idempotencia, colas/DLQ, circuit breakers, degradación) enfocada en el flujo crítico:\
+**Order → Payment → Delivery → PIN → Settlement → Payout**, sin estados “mágicos” sin explicación.
+
+**Objetivos:**
+
+1. Detectar fallos antes de que exploten en Soporte o dinero perdido.
+
+2. Garantizar trazabilidad completa del “money pipeline”; no puede existir `DELIVERED_VERIFIED` sin settlement/payout o causa visible (retry/DLQ/HOLD/disputa).
+
+3. Operar picos (San Valentín/Día de Madres) con degradación controlada y protección (rate limiting/load shedding).
+
+4. Proteger privacidad: observabilidad **no** filtra PII ni coordenadas crudas.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Telemetría de: backend API, workers, webhooks, DB, cache, colas, integraciones (Rapyd, WhatsApp/SMS, Email, Storage, Maps), Policy Engine + App Camaleón.
+
+- 5 pilares: **Logs, Métricas, Trazas, Health Checks, Alertas** (con severidad y ruteo).
+
+- Dashboards: Golden Signals, Money Pipeline, Country Ops.
+
+- Resiliencia: timeouts/retries, idempotencia, colas+DLQ, monitores de invariantes, circuit breaker y modo degradado.
+
+- Reconciliación financiera diaria (autopsia) y alarmas.
+
+- Backups/DR + restore drills.
+
+### Excluye
+
+- Sustituir Auditoría WORM: Observabilidad correlaciona y referencia, pero la evidencia legal/forense vive en Auditoría/Black Box. (Compatibilidad obligatoria, no reemplazo).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### Actores
+
+- **SRE/Plataforma (on-call global):** opera salud técnica y dinero a nivel global.
+
+- **SUPER_ADMIN:** configura políticas críticas, ejecuta acciones controladas, ve global (auditado).
+
+- **COUNTRY_OPS_LEAD (Regional OS):** ve y actúa por país/ciudad/zona; activa banners/circuit breaker regional según permisos.
+
+- **SUPPORT/FINANCE:** ve vistas restringidas (solo “need-to-know”) para tickets, disputas, payouts.
+
+- **SYSTEM/BOT:** collectors, exporters, workers de reconciliación, DLQ replayers.
+
+### Permisos mínimos (namespaces)
+
+- `obs.dashboards.read.global`
+
+- `obs.dashboards.read.country`
+
+- `obs.alerts.manage` (SRE)
+
+- `obs.circuit_breaker.trigger` (SRE/SUPER_ADMIN, y/o Ops por país si policy lo permite)
+
+- `obs.banner.publish` (Ops scoped)
+
+- `obs.dlq.replay` (SRE con auditoría)
+
+- `obs.reconciliation.run/read` (SRE/Finance)
+
+### Guards (enforcement)
+
+- Auth + PermissionGuard + ScopeGuard (country/zone) para dashboards/acciones.
+
+- AuditGuard: toda acción activa (banner, breaker, replay DLQ, overrides) requiere `reason_code` y queda registrada.
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Telemetría estándar (columna vertebral)
+
+**Happy path**
+
+1. Request entra al API → se genera/propaga `trace_id` + `request_id`.
+
+2. Cada llamada a DB/provider genera span hijo con latencia y resultado.
+
+3. Workers heredan `trace_id` desde el job (`job_id`) y registran outcomes/retries.
+
+4. Collector normaliza, redacta PII, aplica sampling y envía a stores (logs/métricas/trazas).
+
+**Edge cases**
+
+- Webhooks duplicados (Rapyd): dedupe por `provider_event_id` y idempotencia por `idempotency_key`; métricas de dedupe suben y disparan alerta.
+
+- Evento crítico sin correlación (sin ids): se registra como error y se envía a DLQ/tabla de errores. (En “money pipeline” se exige causa visible).
+
+### 4.2 Flujo “Money Pipeline” (monitor de invariantes)
+
+**Invariante dura:**\
+No puede existir `DELIVERED_VERIFIED` sin `SETTLED` pasado X minutos **sin causa visible** (`RETRY`, `DLQ`, `HOLD`, `DISPUTE`).
+
+**Happy path**
+
+- Order completed → PIN verified → settlement_worker ejecuta settlement → payout_worker ejecuta payout → todo correlacionado en un trace.
+
+**Edge cases**
+
+- Settlement atascado: DLQ > 0 o lag alto → alerta SEV0/SEV1 según impacto (dinero).
+
+- Payout detenido por policy/hold: debe verse como `HOLD` con metadata (sin PII) y trazabilidad.
+
+### 4.3 Circuit breaker + modo degradado
+
+**Happy path**
+
+- Si pagos degradados: permitir browsing + carrito; bloquear checkout y mostrar banner por región (“Payments Degraded”).
+
+- Si search degradado: fallback a colecciones curadas/home builder server-driven.
+
+- Órdenes activas continúan; no se rompe el flujo existente.
+
+---
+
+## 5) Reglas y políticas (límites, validaciones, caps, resiliencia)
+
+### 5.1 Principios no negociables
+
+1. Snapshot financiero en checkout (no recalcular después).
+
+2. Idempotencia real (pagos, webhooks, payouts).
+
+3. No “estado final sin rastro”: todo irreversible deja telemetría + auditoría.
+
+4. Privacidad: no PII, no coordenadas crudas (solo zone/hub/city).
+
+### 5.2 Timeouts + retries con backoff+jitter
+
+- Retries solo cuando es seguro (idempotente).
+
+- Cada retry registra `retry_count`, `next_retry_at`, `last_error`.
+
+### 5.3 Colas + DLQ
+
+Workers críticos (mínimo):
+
+- `settlement_worker`
+
+- `payout_worker`
+
+- `notification_worker`
+
+- `reconciliation_worker`
+
+DLQ: reintento manual (SRE) con auditoría.
+
+### 5.4 Rate limiting + load shedding (“Valentine’s Mode”)
+
+- Limitar endpoints no críticos (reviews, recomendaciones avanzadas).
+
+- Protecciones por IP/usuario/país en login/OTP, apply coupon, create checkout.
+
+---
+
+## 6) Modelo de datos (telemetría + configuración + estado operativo)
+
+### 6.1 Logs estructurados (JSON obligatorio)
+
+Campos estándar (mínimo):\
+**Correlación**
+
+- `timestamp, level, service, env, version`
+
+- `trace_id, span_id, request_id, job_id`
+
+**Contexto negocio**
+
+- `country_code, city_id, zone_id`
+
+- `order_id, payment_id, payout_id, dispute_id, ticket_id`
+
+- `actor_role, actor_id, actor_hash`
+
+**Integraciones**
+
+- `provider, provider_request_id, provider_event_id`
+
+- `idempotency_key, dedupe_key`
+
+**Resultado**
+
+- `status (SUCCESS|FAIL|RETRY|HOLD)`
+
+- `error_class, error_code`
+
+- `retry_count, next_retry_at`
+
+- `latency_ms, db_time_ms, provider_time_ms`
+
+### 6.2 Métricas (time-series)
+
+- Contadores, gauges, histograms por servicio y por país (SRE + Ops).
+
+### 6.3 Trazas (distributed tracing)
+
+- Propagación de `trace_id` entre API → cola → worker → provider.
+
+### 6.4 Estado operativo (para banners/breakers)
+
+- `operational_status(scope, status, reason_code, created_by, starts_at, ends_at)`\
+    Scope: `GLOBAL|COUNTRY|CITY|ZONE`\
+    Status: `NORMAL|PAYMENTS_DEGRADED|NOTIF_DEGRADED|SEARCH_DEGRADED|CHECKOUT_PAUSED`\
+    (El doc define el concepto; aquí se formaliza para enforcement/auditoría).
+
+---
+
+## 7) Eventos y triggers + idempotencia
+
+### Eventos (mínimos)
+
+- `obs.alert_fired` (sev, rule_id, scope)
+
+- `obs.circuit_breaker_activated/deactivated`
+
+- `obs.banner_published/expired`
+
+- `obs.dlq_depth_changed`
+
+- `obs.reconciliation_completed` (diffs, scope)
+
+- `obs.restore_drill_executed`
+
+### Idempotencia
+
+- Activaciones breaker/banner por `scope + status + window` (dedupe).
+
+- DLQ replay por `dlq_message_id` + `replay_id` (no duplica effects).
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Rapyd (pagos)
+
+- Métricas: error rate, latencia p95, webhooks in/dedup, signature invalid.
+
+- Alerta SEV0: double charge risk / checkout roto país.
+
+### Notificaciones (WhatsApp/SMS/Email)
+
+- Fail rate por canal + provider latency p95 + colas creciendo.
+
+### App Camaleón / Policy Engine
+
+- `config_fetch_fail_rate`, `config_signature_fail_rate`, `fallback_to_last_good_rate`, `policy_eval_latency_p95`.
+
+### Archivos (evidencias)
+
+- `upload_success_rate`, `signed_url_fail_rate`, `storage_latency_p95`, spikes 403/401.
+
+---
+
+## 9) Alertas, severidades, SLOs, dashboards (lo “operable”)
+
+### 9.1 Severidades
+
+- **SEV0:** dinero en riesgo / double charge / payouts detenidos / checkout roto por país.
+
+- **SEV1:** degradación fuerte / proveedor parcialmente caído.
+
+- **SEV2:** fallos moderados / colas creciendo.
+
+- **SEV3:** ruido/backlog.
+
+### 9.2 Alertas mínimas obligatorias
+
+**Pagos/Rapyd**
+
+- `rapyd_error_rate > X% (5m)` por país
+
+- `webhook_invalid_signature_rate > 0` (ataque/misconfig)
+
+- `webhook_dedup_rate` anormal (storm/bug)
+
+**Money pipeline invariants**
+
+- `DELIVERED_VERIFIED && !SETTLED` > X minutos
+
+- `SETTLED && !PAYOUT_SCHEDULED` > X minutos/horas por país
+
+**Colas/DLQ**
+
+- `settlement_dlq_depth > 0` (siempre atención)
+
+- `queue_depth` alto sostenido
+
+**Camaleón**
+
+- `config_signature_fail_rate > 0`
+
+- `fallback_to_last_good_rate` sube
+
+### 9.3 SLOs por journeys (no por microservicio)
+
+- `checkout → PAID_IN_ESCROW < Xs` (99.5% mensual)
+
+- `DELIVERED_VERIFIED → SETTLED < Xm` (99.9% mensual)
+
+- `SETTLED → PAYOUT_SENT < X` (por país/tier)
+
+- Notificaciones transaccionales: envío/intentado exitoso < X min (99%).
+
+### 9.4 Dashboards obligatorios (entregables)
+
+- **Golden Signals:** tráfico, errores, p95/p99, saturación (API+workers+providers).
+
+- **Money Pipeline:** pagos→escrow→PIN→settlement→payout + DLQ + holds.
+
+- **Country Ops:** por país/ciudad: salud, banners activos, breaker, picos.
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+### 10.1 Anti-PII (regla dura)
+
+Prohibido en logs/traces:
+
+- teléfono/email/dirección exacta/notas de entrega
+
+- tokens, firmas, headers sensibles
+
+- coordenadas crudas lat/lng (solo zone/hub/city)
+
+### 10.2 Acceso a dashboards por Jerarquía
+
+- Country Ops: solo su país/ciudad/zona.
+
+- Global Admin/SRE: global.
+
+- Soporte: solo lo necesario (need-to-know) con masking.
+
+### 10.3 Auditoría de acciones SRE/Ops
+
+Breaker, banners, DLQ replay, overrides: append-only con `reason_code`.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Órdenes:** métricas `orders_stuck{state}`, transiciones, PIN success/fail.
+
+- **Pagos/Rapyd:** webhooks dedupe/firma, error rate, settlement/payout pipeline.
+
+- **Soporte/Disputas:** `dispute_step_fail_count`, `chargeback_received`, holds; reduce tickets por detección temprana.
+
+- **Búsqueda:** `search_latency_p95`, `index_freshness_lag`, zero-results anormal.
+
+- **Archivos:** signed URLs, permisos, fallos de upload (PoD).
+
+- **App Camaleón/Policy Engine:** fetch/firma/fallback; evita “config rota” en producción.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Observabilidad)
+
+1. **Analítica vs Observabilidad mezcladas** → aquí Observabilidad se define como salud técnica + invariantes de dinero; analítica vive aparte y se correlaciona por `trace_id/request_id`.
+
+2. **PII filtrada en logs** → prohibición explícita + masking/hashing + no lat/lng crudo.
+
+3. **Estados finales sin causa (dinero)** → invariante dura + alertas + DLQ/HOLD visibles.
+
+4. **Sin operación multi-país** → scoping en dashboards/alertas/banners/breaker por país/ciudad/zona.
+
+5. **Resiliencia “a mano”** → patrones obligatorios: timeouts/retries, idempotencia, colas+DLQ, reconciliation, DR drills.

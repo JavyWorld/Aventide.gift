@@ -1,0 +1,429 @@
+### Sistema Genie v2.0 (Gift Wizard / “Pregúntale al Genie”) — Solo Genie (sin Memory)
+
+**Fuente de verdad:** “Genie y Memory”. En esta entrega se usa **solo** la sección Genie/Wizard y sus reglas.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Genie es el sistema que transforma “no sé qué regalar” en una selección comprable en **30–60 segundos**, mediante un **Wizard de 3 preguntas** (Quién / Cuándo / Vibe) que **orquesta** sistemas existentes (Cobertura, Capacidad/Disponibilidad, Policies por país, calidad/moderación) y devuelve resultados **realizables** (cero humo logístico).
+
+**Objetivos (duros):**
+
+1. **Conversión rápida:** entregar lista rankeada lista-para-checkout con explicabilidad (“por qué te lo recomiendo”).
+
+2. **No violar constraints del core:** Genie nunca inventa logística; filtra por cobertura y disponibilidad real.
+
+3. **Calidad como columna vertebral:** el ranking prioriza `quality_score` y puede excluir bajo umbral en “Premium Mode”.
+
+4. **Multi-país contextual:** re-evaluación por `policy_context` (clima/eventos/riesgo) por país/hub/zona.
+
+5. **Seguridad/privacidad consistente:** soporta “Admirador Secreto” sin romper confianza del seller (trust badge interno).
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Entry points en app: Home CTA fijo + banners “Oráculo” (disparadores) + búsqueda contextual (solo como input al wizard).
+
+- Wizard 3 pasos y su sesión (`genie_session`) con estado y respuestas.
+
+- Candidate generation + hard filters + ranking + re-ranking con diversidad (“wow mix”).
+
+- Explicabilidad y refinamientos rápidos (chips: “Más barato”, “Más premium”, “Más rápido”, “Más creativo”).
+
+- Telemetría de Genie (eventos de funnel) para analítica.
+
+### Excluye (por esta entrega “Solo Genie”)
+
+- **Perfil de regalos / memory persistente**, agenda, circles, wishlists temáticas (se mencionan en el documento, pero quedan fuera).
+
+- Modelos de embedding/recipient_vector persistentes (parte de memory).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER:** ejecuta wizard, consume recomendaciones, guarda/compare, compra.
+
+- **SYSTEM (Genie Orchestrator):** genera candidatos, aplica gates, rankea, responde.
+
+- **COUNTRY_OPS_LEAD:** gobierna policies (clima/eventos) que afectan candidatos; no “tunea” Genie por fuera del policy engine.
+
+### 3.2 Permisos mínimos
+
+- `genie.session.create/read/update.own`
+
+- `genie.recommendations.generate`
+
+- `genie.telemetry.write`
+
+- `genie.ops.policies.read` (ops)
+
+- `genie.simulator.run` (ops/analytics; si se habilita)
+
+### 3.3 Guards (invariantes de seguridad/consistencia)
+
+1. AuthGuard (o guest-mode si se habilita; no definido en doc)
+
+2. Address/ContextGuard: requiere contexto territorial válido (country/hub/zone) y dirección geocodificada (por dependencia de cobertura).
+
+3. CoverageGate (hard): solo entregables en la zona de entrega.
+
+4. AvailabilityGate (hard): lead time + slots/cutoffs reales.
+
+5. PolicyGate (hard): restricciones por clima/eventos/riesgo.
+
+6. Safety/PrivacyGuard: reglas de “Admirador Secreto” y señales de trust al seller.
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Entry points → Inicio del wizard
+
+**Happy path**
+
+1. Home CTA: “¿No sabes qué regalar? Pregúntale al Genie”.
+
+2. Crea `genie_session` (estado `STEP_1`).
+
+3. Wizard paso 1: “Quién” (recipient-type rápido o selección de lista).
+
+4. Paso 2: “Cuándo” (Hoy/Mañana/Este finde/Fecha exacta).
+
+5. Paso 3: “Vibe” (8–12 chips).
+
+6. Genera resultados (lista rankeada con razones y CTA).
+
+**Edge cases**
+
+- Usuario elige “Fecha exacta”: Genie **solo** devuelve items con slots disponibles en scheduler.
+
+- Usuario no tiene dirección válida: Genie no puede pasar CoverageGate; debe forzar captura de dirección (dependencia; la UI es Camaleón).
+
+### 4.2 Candidate generation → Gates → Ranking → Re-ranking
+
+**Happy path (3 etapas)**\
+A) Candidate Generation (200–2000) usando:
+
+- categorías/tags por vibe,
+
+- top sellers por zona,
+
+- trending local,
+
+- inventario con lead_time compatible.
+
+B) Hard Filters:
+
+- CoverageGate,
+
+- Scheduler/availability gate (slots/cutoff/lead time),
+
+- Policy gate (clima/eventos).
+
+C) Ranking final + re-ranking “wow mix” con diversidad.
+
+**Edge cases**
+
+- Resultados vacíos por restricciones: aplicar fallback controlado:
+
+    - ampliar vibes (si user acepta) o
+
+    - sugerir fecha posterior (si user eligió hoy/mañana) o
+
+    - sugerir “Last-minute heroes” (solo si hay disponibilidad real).\
+        (Inferencia: consistente con “cero frustración” y con el concepto de “Last Minute Heroes” en el doc).
+
+### 4.3 Explicabilidad + refinamiento instantáneo
+
+**Happy path**
+
+- Cada resultado incluye etiquetas:
+
+    - “Perfecto para \[ocasión\]”
+
+    - “Entrega mañana”
+
+    - “Top calidad”
+
+    - “Favorito para ‘Romántico’”
+
+- Chips de refinamiento sin reiniciar wizard:
+
+    - “Más barato”, “Más premium”, “Más rápido”, “Más creativo”.
+
+**Edge cases**
+
+- Evitar repetir siempre lo mismo: novelty + diversity_penalty (ver 5.4).
+
+### 4.4 Checkout: identidad pública / anónima (Admirador Secreto)
+
+**Happy path**
+
+- En checkout Genie ofrece:
+
+    - “Identidad pública” o “Anónima”.
+
+- Si anónima:
+
+    - el seller ve un **Trust Badge interno** para reducir rechazos por miedo.
+
+---
+
+## 5) Reglas y políticas (hard constraints, modos, límites)
+
+### 5.1 Regla dura: Genie no inventa logística
+
+- Todo candidato debe pasar CoverageGate + AvailabilityGate.
+
+### 5.2 Coverage Gate (entregabilidad)
+
+- Genie retorna solo productos entregables en la **zona de entrega del recipient**, no necesariamente la del buyer si difieren.
+
+### 5.3 Availability Gate (lead time + scheduler)
+
+- `lead_time <= (fecha_entrega - ahora)`
+
+- Si “fecha exacta”: debe existir slot real y pasar cutoff/pausas.
+
+### 5.4 Quality Gate (umbral y comportamiento)
+
+- `quality_score` es base de ranking.
+
+- “Premium Mode”:
+
+    - excluir `quality_score < 0.55` (ejemplo del doc).
+
+- “Normal Mode”:
+
+    - degradar en ranking, no necesariamente excluir.
+
+### 5.5 Policy Gate (clima/eventos/riesgo)
+
+- Re-evalúa candidatos con `policy_context` activado por Ops Lead (ej. “Lluvia Fuerte” evita gifts delicados salvo sellers con packaging).
+
+### 5.6 Privacidad/Seguridad: Admirador Secreto
+
+- Checkout siempre presenta opción “pública/anónima”.
+
+- Modo anónimo exige señal de trust al seller (interno).
+
+### 5.7 No duplicar sistemas
+
+- Genie reutiliza Search/Ranking base para candidate gen; no crea catálogo paralelo.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 genie_sessions
+
+Campos mínimos:
+
+- `session_id`
+
+- `buyer_id` (nullable si guest; no definido)
+
+- `delivery_context` (country/hub/zone + address_id)
+
+- `step_state` (STEP_1|STEP_2|STEP_3|RESULTS)
+
+- `answers_json`:
+
+    - `who` (recipient_type o recipient_id)
+
+    - `when` (intent: today/tomorrow/weekend/date_exact + target_date)
+
+    - `vibe[]`
+
+- `mode` (NORMAL|PREMIUM)
+
+- `created_at`, `updated_at`, `expires_at`
+
+Índices:
+
+- (`buyer_id`,`created_at desc`)
+
+- (`expires_at`)
+
+- (`delivery_context.zone_id`,`created_at desc`) (para trending local cache si aplica)
+
+### 6.2 genie_results_cache (opcional)
+
+**Suposición:** para latencia, se puede cachear por sesión; el doc define enfoque por etapas pero no tabla de cache.
+
+- `session_id`
+
+- `candidates_hash`
+
+- `results_json` (top N)
+
+- `generated_at`
+
+### 6.3 genie_events (telemetría)
+
+Eventos definidos:
+
+- `genie_started`
+
+- `genie_answered_step`
+
+- `genie_results_shown`
+
+- `genie_result_clicked`
+
+- `genie_saved_gift`
+
+- `order_completed_from_genie`
+
+Campos:
+
+- `event_id`, `session_id`, `buyer_id`, `country/hub/zone`, `event_type`, `payload_json`, `created_at`
+
+Índices:
+
+- (`event_type`,`created_at desc`)
+
+- (`buyer_id`,`created_at desc`)
+
+- (`session_id`,`created_at asc`)
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### 7.1 Eventos del dominio Genie
+
+- `GENIE_SESSION_CREATED`
+
+- `GENIE_STEP_ANSWERED`
+
+- `GENIE_RESULTS_GENERATED`
+
+- `GENIE_RESULT_CLICKED`
+
+- `GENIE_ORDER_ATTRIBUTED` (cuando una orden se completa desde Genie)
+
+### 7.2 Idempotencia
+
+- `GENIE_STEP_ANSWERED` idempotente por `(session_id, step_no, client_event_id)` (Suposición: necesario para reintentos móviles).
+
+- `GENIE_RESULTS_GENERATED` idempotente por `(session_id, answers_hash, policy_version, availability_snapshot_ref)` (Suposición: consistente con gates duros y policies).
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Cobertura
+
+- Input: `delivery_context` + dirección validada.
+
+- Output: lista de sellers/listings entregables o filtro geoespacial.
+
+### Capacidad/Disponibilidad
+
+- Input: `target_date/intent`, `lead_time`, slots/cutoffs/pausas.
+
+- Output: elegibilidad/slots (hard gate).
+
+### Policies por país (Gobernanza multi-país)
+
+- Input: `policy_context` (clima/eventos).
+
+- Output: restricciones activas para filtrar/rankear.
+
+### Moderación visual / Calidad
+
+- Input: `quality_score` y/o señales de fotos.
+
+- Output: quality gate + señal de ranking.
+
+### Búsqueda/Ranking base
+
+- Input: vibe/tags/trending local/top sellers.
+
+- Output: candidatos (no duplicar catálogo).
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- Funnel:
+
+    - `genie_sessions_started_total`
+
+    - `genie_step_completion_rate{step}`
+
+    - `genie_results_shown_total`
+
+    - `genie_click_through_rate`
+
+    - `genie_order_conversion_rate`
+
+- Calidad operacional:
+
+    - `genie_zero_results_rate{country,zone,when}`
+
+    - `genie_gate_drop_rate{coverage|availability|policy|quality}`
+
+    - `genie_latency_ms_p50/p95{stage}` (candidate gen / gates / ranking)
+
+- Negocio:
+
+    - `aov_from_genie`
+
+    - `refund_rate_from_genie` (para validar “cero humo”)
+
+### Alertas
+
+- `genie_zero_results_rate` sube (coverage/availability/policy mal configurada)
+
+- Latencia p95 alta (candidate gen excesivo o dependencia lenta)
+
+- Drop por quality gate demasiado alto (moderación/score roto)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Genie no expone PII; “anónimo/público” se decide en checkout.
+
+- Decisiones relevantes (policy_context aplicado, modo premium, quality threshold) deben registrarse en audit/telemetría para reproducibilidad de recomendaciones en disputas (“por qué se mostró X”). (Inferencia: consistente con filosofía de auditoría y explicabilidad del doc).
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Cobertura:** gate de entregabilidad por zona (no inventar logística).
+
+- **Capacidad/Disponibilidad:** gate por lead time + slots/cutoffs reales.
+
+- **Gobernanza multi-país:** policy_context (clima/eventos/restricciones) re-evalúa candidatos.
+
+- **Moderación/Calidad:** `quality_score` es columna vertebral de ranking.
+
+- **Notificaciones (fuera de alcance directo):** Genie dispara eventos; no envía notificaciones por sí mismo.
+
+---
+
+### Conflictos/incoherencias corregidas (en “Solo Genie”)
+
+1. **Genie recomendando cosas no entregables** → corregido: CoverageGate obligatorio por zona de entrega.
+
+2. **Genie prometiendo fechas sin cupo real** → corregido: AvailabilityGate por lead time + slots/cutoffs.
+
+3. **Ranking “bonito” pero sin calidad real** → corregido: `quality_score` como base + Premium Mode con umbral.
+
+4. **Recomendaciones inconsistentes en eventos/clima** → corregido: PolicyGate re-evalúa por `policy_context` activo por país.
+
+5. **Modo anónimo inseguro (seller desconfía y rechaza)** → corregido: opción pública/anónima en checkout + trust badge interno.
+
+6. **Duplicación de Search/Ranking** → corregido: Genie reutiliza Search/Trending para candidate gen (no catálogo paralelo).

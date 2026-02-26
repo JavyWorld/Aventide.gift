@@ -1,0 +1,656 @@
+### Sistema de Reserva Global v2.0 (GLOBAL_RESERVE + GLOBAL_RECOVERY + CRISIS)
+
+**Fuentes de verdad:**
+
+- Waterfall Engine v1.0 (orden fijo de cobertura, loss_case_id, doble-entry, idempotencia, recovery obligatorio).
+
+- Continuidad / Country Governance (VACANT/LOCKDOWN, break-glass, four-eyes, WORM).
+
+- Reserva Nacional v2.0 (Layer 1, workflow, prohibiciones, observabilidad).
+
+- Resumen (marco global de split/ledger/policies y controles críticos).
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** La **Reserva Global** es la “caja de último recurso” del ecosistema multi-país, implementada como una **cuenta central de ledger** (`GLOBAL_RESERVE`) que actúa como **Layer 3** del Waterfall de pérdidas. Solo entra cuando **Country Reserve** y **COL Liability** no alcanzan, y cuando entra, crea automáticamente una **obligación de recuperación** contra el COL vía `GLOBAL_RECOVERY_RECEIVABLE_{country}` + `recovery_account` (set-off sobre earnings futuros), con guardrails.
+
+**Objetivos (duros):**
+
+1. Absorber pérdidas “tail risk” sin romper el marketplace.
+
+2. Evitar moral hazard: **todo lo que cubre Global se recupera del COL** de forma automática (salvo crisis escalada).
+
+3. Contabilidad determinística: doble-entry, append-only, idempotencia estricta; sin ajustes por fuera.
+
+4. Gobernanza fuerte: disbursements/overrides solo por roles globales con four-eyes + break-glass + evidencia WORM.
+
+5. Capacidad de “modo crisis”: si Global no alcanza → `EMERGENCY_ESCALATION` y protocolo de contención.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Cuenta de ledger `GLOBAL_RESERVE` y su uso como **Layer 3** del Waterfall.
+
+- Cuenta(s) de **recuperación**: `GLOBAL_RECOVERY_RECEIVABLE_{country}` y `recovery_accounts` para set-off al COL.
+
+- Controles de **crisis**: detección de insuficiencia, `EMERGENCY_ESCALATION`, freeze parcial, restricción de métodos de pago riesgosos, comité.
+
+- Reportería de exposición global por país: cuánto aportó Global, aging de recoveries, % pérdidas por layer.
+
+### Excluye
+
+- Intake de disputas/chargebacks (eso vive en Disputas/Loss Intake; aquí se consume `loss_case`).
+
+- Cálculo de fees/rates (Rate Engine unificado).
+
+- Backups/DR (Copia de seguridad).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### Actores
+
+- **FINANCE_ADMIN (global):** opera gobierno del fondo (aprobaciones, reporting, decisiones de crisis).
+
+- **SUPER_ADMIN (global):** activa LOCKDOWN/medidas excepcionales, break-glass para acciones críticas.
+
+- **SYSTEM/WORKERS:** ejecutan waterfall, postings ledger, y recovery cycles idempotentes.
+
+- **AUDIT/LEGAL:** acceso de lectura a evidencia WORM (view_sensitive auditado).
+
+- **COUNTRY_OPS_LEAD (COL):** no controla Global; solo “sujeto” de recuperación por set-off cuando Global cubre.
+
+### Permisos mínimos
+
+- `global_reserve.balance.read`
+
+- `global_reserve.loss_case.read`
+
+- `global_reserve.waterfall.apply` (system)
+
+- `global_reserve.recovery.open/close` (system)
+
+- `global_reserve.recovery.pause/resume` (finance_admin; con policy)
+
+- `global_reserve.emergency.freeze.request/approve` (super_admin/finance_admin)
+
+- `global_reserve.disbursement.request/create` (finance_admin) _(solo si existe uso fuera del waterfall; ver 8.2)_
+
+- `global_reserve.disbursement.approve` (finance_admin distinto; four-eyes)
+
+- `global_reserve.break_glass` (super_admin; 2FA + reason + TTL)
+
+- `audit.view_sensitive` (audit/legal con reason)
+
+### Guards
+
+- **LedgerWORMGuard:** toda operación se expresa como transacción doble-entry.
+
+- **IdempotencyGuard:** un `loss_case` no se aplica dos veces; recovery cycle no duplica transferencias.
+
+- **FourEyesGuard:** para acciones manuales de alto impacto (pausar recovery, crisis overrides, disbursements fuera de waterfall).
+
+- **BreakGlassGuard:** overrides críticos, freezes, y medidas irreversibles.
+
+- **ContinuityPolicyGuard:** en LOCKDOWN/VACANT se endurecen capacidades del país y se elevan approvals a global.
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Cobertura de pérdida: Global como Layer 3
+
+**Happy path**
+
+1. Loss Intake crea `loss_case (OPEN)` con `net_loss_amount` y evidencia.
+
+2. Waterfall aplica:
+
+    - Country Reserve (Layer 1)
+
+    - COL Liability (Layer 2)
+
+    - **Global Reserve (Layer 3)**: `post_ledger(GLOBAL_RESERVE → LOSS_EXPENSE_{country}, c)`
+
+3. Si Global aportó `c>0`, se crea automáticamente:
+
+    - `post_ledger(GLOBAL_RECOVERY_RECEIVABLE_{country} → GLOBAL_RESERVE, c)`
+
+    - `recovery_account(principal=c, outstanding=c)`
+
+    - activar `col_rate_mode=RECOVERY` (o SAFE_RECOVERY) y el Recovery Engine empieza set-off.
+
+**Edge cases**
+
+- Global aporta parcial y queda `remaining>0` → `EMERGENCY_ESCALATION`.
+
+- Moneda: si el ledger es multi-currency, la política de FX/settlement no está definida en los docs; se mantiene en `currency` del caso y se reporta por currency (sin inventar conversión). (Suposición mínima)
+
+### 4.2 Recovery automático (set-off al COL)
+
+**Happy path**
+
+1. En cada ciclo (diario/batch):
+
+    - calcula `gross_col_earnings` del COL,
+
+    - calcula `recovery_cut = min(outstanding, gross_col_earnings * recovery_share_pct_dynamic)`
+
+    - aplica guardrails: floor de `ops_lead_earn_pct`, cap de recorte diario (`max_daily_delta_bps`), horizonte máximo.
+
+2. Postea:
+
+    - `COL_EARNINGS_PAYABLE_{country} → GLOBAL_RESERVE` por `recovery_cut` (o estructura equivalente del settlement).
+
+3. Reduce `outstanding_amount`.
+
+4. Si `outstanding=0` → `RECOVERY_CLOSED`.
+
+**Edge cases**
+
+- Si el Recovery Engine falla N ciclos → “deadman switch”: bloquear payouts no críticos hasta reconciliar.
+
+- Si el país entra en LOCKDOWN: recovery puede cambiar a `SAFE_RECOVERY` (más conservador o más agresivo) según policy.
+
+### 4.3 Crisis: Global insuficiente (EMERGENCY_ESCALATION)
+
+**Happy path**
+
+1. Orchestrator detecta `remaining>0` tras aplicar Global.
+
+2. Marca el caso `EMERGENCY_ESCALATION` y dispara `trigger_crisis_protocol`.
+
+3. Medidas:
+
+    - freeze parcial de payouts del país,
+
+    - detener campañas/promos,
+
+    - restringir métodos de pago de alto riesgo,
+
+    - comité Risk + Finance + Legal,
+
+    - plan de recapitalización/priorización.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Orden fijo (inalterable)
+
+`Country Reserve → COL Liability → Global Reserve → Recovery obligatorio`
+
+### 5.2 No retroactividad
+
+Las órdenes usan snapshot financiero inmutable; el sistema de reservas no “recalcula” órdenes pasadas.
+
+### 5.3 Idempotencia estricta
+
+- Un `loss_case` no se aplica dos veces.
+
+- Recovery cycles con idempotency keys por `(recovery_id, settlement_cycle_id)`. (Suposición operativa necesaria)
+
+### 5.4 Guardrails de recovery
+
+- `ops_lead_earn_pct_floor`
+
+- `max_daily_delta_bps`
+
+- `max_recovery_horizon_days`
+
+- `SAFE_RECOVERY` mode y “risk freeze” si sube riesgo.
+
+### 5.5 Prohibiciones
+
+- No se permite “override manual” del orden del waterfall.
+
+- No se permiten ajustes fuera del ledger.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 Ledger accounts (mínimo)
+
+- `GLOBAL_RESERVE`
+
+- `GLOBAL_RECOVERY_RECEIVABLE_{country}`
+
+- `LOSS_EXPENSE_{country}`
+
+- (referenciadas por el waterfall) `COUNTRY_RESERVE_{country}`, `COL_LIABILITY_{country}`, `COL_EARNINGS_PAYABLE_{country}`
+
+### 6.2 loss_cases
+
+- `loss_case_id`, `country_code`, `col_id`, `loss_type`, `gross_amount`, `recoveries_external`, `net_loss_amount`, `currency`, `source_ref`, `evidence_hash`, `status`, timestamps.
+
+### 6.3 waterfall_applications
+
+- `loss_case_id`, `layer`, `applied_amount`, `ledger_txn_id`, `applied_at`.
+
+### 6.4 recovery_accounts
+
+- `recovery_id`, `loss_case_id`, `country_code`, `col_id`, `principal_amount`, `outstanding_amount`, `status`, timestamps.
+
+### 6.5 col_rate_modes (recovery controls)
+
+- `mode`, `ops_lead_earn_pct_current`, `ops_lead_earn_pct_floor`, `max_daily_delta_bps`, `updated_at`.
+
+### 6.6 global_reserve_policies (nuevo, multi-país)
+
+**Suposición:** no está explícito; se requiere para gobernar thresholds por país y cobertura.
+
+- `policy_version`
+
+- `min_global_coverage_ratio` (agregado)
+
+- `emergency_thresholds_json` (por loss_rate, chargeback_bps, etc.)
+
+- `recovery_defaults_json` (share_pct, horizon)
+
+- `effective_from`, `effective_to`
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos
+
+- `LOSS_CASE_CREATED`
+
+- `WATERFALL_APPLIED(layer=GLOBAL_RESERVE, amount=c)`
+
+- `RECOVERY_ACCOUNT_OPENED/UPDATED/CLOSED`
+
+- `RECOVERY_CYCLE_EXECUTED` (settlement) _(nombre puede variar; debe auditarse)_
+
+- `EMERGENCY_ESCALATION_TRIGGERED`
+
+- `COUNTRY_LOCKDOWN_ENABLED/DISABLED` (cuando crisis lo requiere)
+
+### Idempotencia
+
+- `apply_waterfall`: idempotente por `loss_case_id`.
+
+- `recovery_cycle`: idempotente por `(recovery_id, cycle_id)` (Suposición necesaria).
+
+- `emergency_trigger`: idempotente por `(loss_case_id)`.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### 8.1 Waterfall Engine (dependencia directa)
+
+- Input: `loss_case` OPEN con `net_loss_amount`.
+
+- Output: postings ledger + applications + recovery accounts.
+
+### 8.2 Continuidad / Gobernanza multi-país
+
+- Si el país está `VACANT/LOCKDOWN`, Global puede requerir controles más estrictos para acciones money-plane y aplicar freezes/holds.
+
+### 8.3 Pagos/Settlement
+
+- Recovery se aplica como set-off sobre earnings del COL durante settlement (workers + auditoría + idempotencia).
+
+### 8.4 Observabilidad/Analítica
+
+- Dashboard de exposición global por país:
+
+    - `global_exposure_by_country`, `% losses covered by each layer`, `recovery_velocity`, `recovery_age_days`.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `global_reserve_balance`
+
+- `global_exposure_by_country{country}`
+
+- `%loss_covered_by_layer{layer}`
+
+- `recovery_outstanding_total{country,col}`
+
+- `recovery_velocity{country}`
+
+- `recovery_age_days_p95{country}`
+
+- `emergency_escalation_total{country}`
+
+### Alertas mínimas
+
+- `EMERGENCY_ESCALATION` (P0).
+
+- Caída de `global_reserve_balance` por debajo de threshold interno (policy). (Suposición; el doc lista “min coverage” como KPI/alert)
+
+- Recovery aging > umbral (amber/red) y riesgo de default del COL.
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Cada `loss_case` requiere `evidence_hash` y trazabilidad completa (origen, montos, approvals, movimientos ledger).
+
+- Toda acción manual (pausar recovery, crisis freezes, disbursements no-automáticos) exige:
+
+    - four-eyes,
+
+    - break-glass si es crítica,
+
+    - auditoría WORM con reason + evidence_refs.
+
+- Acceso a reportes sensibles con `VIEW_SENSITIVE` y logging.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Reserva Nacional:** Global es Layer 3; si Country Reserve falla, Global entra y luego fuerza recovery.
+
+- **Continuidad:** LOCKDOWN/VACANT endurecen money-plane y pueden disparar freezes/holds y reroutes.
+
+- **Ledger/Auditoría:** doble-entry append-only, trazabilidad por loss_case_id, WORM.
+
+---
+
+### Conflictos/incoherencias corregidas (Reserva Global)
+
+1. **Global cubre pérdidas sin recuperar** → corregido: Global siempre abre `GLOBAL_RECOVERY_RECEIVABLE_{country}` + `recovery_account` y activa set-off al COL con guardrails.
+
+2. **“Overwrites” manuales al waterfall** → corregido: orden fijo inalterable; no hay operación manual para cambiar layers.
+
+3. **Ajustes contables fuera del ledger** → corregido: doble-entry obligatorio, append-only, evidencia hash.
+
+4. **Sin plan si Global no alcanza** → corregido: `EMERGENCY_ESCALATION` + protocolo de crisis (freeze, restricciones, comité).
+
+5. **COL controlando la caja global** → corregido: roles globales; COL solo como sujeto de recuperación, no como operador.
+
+---
+
+## Sistema de Capitalización de Reserva Global v2.0 (integrado con Motor Unificado “Take Rate Engine + Revenue Rate Engine”)
+
+**Fuentes de verdad base (invariantes + estructura):**
+
+- Motor Unificado de Rates: outputs canónicos (`platform_fee_pct`, `ops_fee_cap_pct`, `ops_lead_earn_pct`, `country_reserve_pct`) + snapshot inmutable por orden. .docx†L5-L12】.docx†L19-L30】
+
+- RRE-OS unificado: invariantes (buyer paga `ops_lead_fee_pct` cap; `ops_lead_earn_pct <= ops_lead_fee_pct`; diferencia a `COUNTRY_RESERVE`; snapshot inmutable; Global loss ⇒ deuda recuperable).
+
+- Waterfall Engine: orden fijo `Country Reserve -> COL Liability -> Global Reserve -> Recovery obligatorio`, doble-entry, idempotencia, y crisis si Global no alcanza.
+
+- Reserva Nacional v2: country reserve no es del COL; workflow + WORM + four-eyes; routing en VACANT/LOCKDOWN; no backpay.
+
+---
+
+### 1) Definición y objetivos del módulo
+
+**Definición:** Capitalización de Reserva Global es el sub-sistema dentro del **Motor Unificado de Rates (RRE-OS)** que define **cómo se fondea** `GLOBAL_RESERVE` de forma continua, auditable (ledger), no retroactiva (snapshot por orden), y coherente con el Waterfall (Global como Layer 3) y con Recovery obligatorio al COL cuando Global cubre pérdidas.
+
+**Objetivos (duros):**
+
+1. Mantener `GLOBAL_RESERVE` por encima de un umbral de cobertura para absorber tail-risk sin romper operación multi-país.
+
+2. Evitar moral hazard: si Global paga, queda **deuda recuperable** y se activa Recovery.
+
+3. No tocar lo buyer-facing fuera de límites: el motor decide rates, pero el snapshot por orden es inmutable y no retroactivo.
+
+4. Integración total con el vector de rates del motor unificado (sin duplicar motores ni crear “fees nuevos” sin gobernanza). .docx†L5-L12】
+
+---
+
+### 2) Alcance (incluye / excluye)
+
+Incluye
+
+- Definir **fuentes de fondeo** de `GLOBAL_RESERVE` dentro de la economía del motor unificado. .docx†L19-L30】
+
+- Reglas contables (ledger doble-entry) y snapshot por orden para “contribuciones” a Global.
+
+- Límites por país: cuota de exposición global, umbrales de escalamiento, gates para LOCKDOWN/contención cuando el país consume Global excesivamente.
+
+Excluye
+
+- Intake de pérdidas (lo crea Loss Intake).
+
+- Cambiar el orden del Waterfall (prohibido).
+
+---
+
+### 3) Actores y permisos (RBAC) + guards
+
+Se hereda la gobernanza de reservas y continuidad:
+
+- Finance/Admin global opera políticas y aprobaciones (four-eyes), System/Workers ejecutan postings idempotentes, Audit/Legal lectura sensible con WORM.
+
+- Break-glass para overrides críticos, y WORM para evidencia.
+
+---
+
+### 4) Diseño de capitalización (fuentes de fondeo)
+
+> **Nota de consistencia:** La documentación define el vector de rates y las reservas (Country/Global) y su relación con Waterfall/Recovery, pero **no define** explícitamente la “capitalización” de `GLOBAL_RESERVE`. Esto es **propuesta** integrada al motor unificado, sin romper invariantes existentes.
+
+4.1 Fuente A — “Aporte de plataforma” desde `platform_fee_pct` (primaria)
+
+**Regla:** de cada orden, el motor ya decide `platform_fee_pct`. Dentro del payout de plataforma, se separa internamente:
+
+- `platform_fee_amount = P * platform_fee_pct`
+
+- `global_reserve_contrib_amount = platform_fee_amount * global_reserve_contrib_pct(country, segment, risk_tier)`
+
+- `platform_net_revenue_amount = platform_fee_amount - global_reserve_contrib_amount`
+
+**Por qué es compatible:**
+
+- No cambia lo que paga el buyer (no introduce fee extra); solo divide el ingreso de plataforma.
+
+- Mantiene snapshot por orden.
+
+- El motor unificado ya está diseñado para decidir rates por país/segmento/ventana y optimizar margen y riesgo. .docx†L16-L25】
+
+**Ledger posting (por orden, al momento de settlement “earned” del platform fee):**
+
+- Dr `PLATFORM_FEE_EARNED` / Cr `GLOBAL_RESERVE` por `global_reserve_contrib_amount`
+
+- Dr `PLATFORM_FEE_EARNED` / Cr `PLATFORM_NET_REVENUE` por `platform_net_revenue_amount`\
+    (El “earned schedule” existe como principio en el motor unificado; la capitalización se ata al mismo devengo para no crear desfases de caja.)
+
+4.2 Fuente B — “Recuperaciones” del Waterfall (obligatoria, secundaria)
+
+Cuando Global cubre una pérdida (`c > 0`), el Waterfall crea:
+
+- `GLOBAL_RECOVERY_RECEIVABLE_{country}` y abre `recovery_account` y activa recovery mode.\
+    Luego, en settlement, el Recovery Engine transfiere `recovery_cut` a Global Reserve (set-off).
+
+**Esto ya capitaliza Global automáticamente** (retorno de fondos) y debe ser tratado como **flujo “inflow-recovery”**, no como revenue.
+
+4.3 Fuente C — “Contribución desde Reservas Nacionales” (solo por regla explícita y con límites)
+
+**Regla propuesta:** permitir que **una fracción del excedente de** `COUNTRY_RESERVE_{country}` (por encima de un “target de cobertura local”) se transfiera periódicamente a `GLOBAL_RESERVE` como “reaseguro interno”, solo si:
+
+- el país está `ACTIVE` (no VACANT/LOCKDOWN),
+
+- el país mantiene su target mínimo,
+
+- el transfer ocurre por worker programado con política versionada (no manual),
+
+- queda auditado WORM y es reversible contablemente (no borrable).
+
+**Compatibilidad con invariantes:** Country Reserve es custodia corporativa por país y no del COL; esta transferencia no crea backpay ni cambia ownership.
+
+**Ledger posting (batch):**
+
+- Dr `COUNTRY_RESERVE_{country}` / Cr `GLOBAL_RESERVE` por `country_to_global_reinsurance_amount`
+
+---
+
+### 5) Integración explícita con el Motor Unificado (RRE-OS)
+
+5.1 Nuevos outputs del motor (extensión mínima)
+
+Los outputs canónicos existentes incluyen `platform_fee_pct`, `ops_fee_cap_pct`, `ops_lead_earn_pct`, `country_reserve_pct`. .docx†L19-L30】
+
+**Extensión propuesta (solo interna, no buyer-facing):**
+
+- `global_reserve_contrib_pct` (por país/segmento/risk_tier)
+
+- `global_reserve_target_policy_id` (para trazabilidad)
+
+- `global_support_quota_pct` (límite de exposición global por país; ver 6)
+
+5.2 Invariantes que NO se rompen
+
+- Snapshot por orden inmutable.
+
+- `ops_reserve_pct = ops_fee_cap_pct - ops_lead_earn_pct` y se acumula en `COUNTRY_RESERVE`.
+
+- Waterfall fijo y recovery obligatorio si Global paga.
+
+---
+
+### 6) Límites por país (cuotas, exposición y gates)
+
+6.1 Límite de “consumo de Global” por país
+
+**Política propuesta:** `global_support_quota` por país, medido como:
+
+- `global_exposure_country = sum(Global contributions to losses in last N days) - recoveries_received`
+
+- `quota = gmv_country_last_N_days * global_support_quota_pct(risk_tier)`
+
+**Acción automática si excede:**
+
+- subir `risk_tier` del país (R0–R4 ya es parte del motor unificado),
+
+- activar “SAFE_RECOVERY” (más recuperación, dentro de guardrails),
+
+- y/o poner el país en `LOCKDOWN` si hay señales de abuso.
+
+6.2 Umbrales de crisis global
+
+Si `GLOBAL_RESERVE` cae por debajo de `global_min_coverage`, o si un `loss_case` entra en `EMERGENCY_ESCALATION` (Global no alcanza), se activa el protocolo: freeze parcial + restricción de métodos de pago + comité.
+
+---
+
+### 7) Modelo de datos (extensiones)
+
+7.1 Policies del motor (versionadas)
+
+Tabla `global_reserve_capitalization_policies` (versionada):
+
+- `policy_version`
+
+- `country_code | segment_id | risk_tier`
+
+- `global_reserve_contrib_pct`
+
+- `global_support_quota_pct`
+
+- `country_reserve_target_coverage_days` (para permitir fuente C)
+
+- `effective_from`, `effective_to`
+
+- `created_by`, `approved_by` (four-eyes)
+
+7.2 Snapshot por orden (locked_fee_structure)
+
+Agregar campos (internos):
+
+- `platform_fee_pct`, `platform_fee_amount` (ya existe conceptualmente)
+
+- `global_reserve_contrib_pct`, `global_reserve_contrib_amount`
+
+- `platform_net_revenue_amount`\
+    Mantiene inmutabilidad y reproducibilidad.
+
+7.3 Ledger accounts (mínimas)
+
+Ya están definidas como cuentas mínimas del Waterfall:
+
+- `GLOBAL_RESERVE`, `GLOBAL_RECOVERY_RECEIVABLE_{country}`, `LOSS_EXPENSE_{country}`, `COL_EARNINGS_PAYABLE_{country}`, etc.
+
+Añadir (si no existen) cuentas contables internas:
+
+- `PLATFORM_NET_REVENUE`
+
+- `PLATFORM_FEE_EARNED`
+
+- `GLOBAL_RESERVE_FUNDING_CLEARING` (opcional para conciliación)
+
+---
+
+### 8) Eventos y triggers
+
+- `GLOBAL_RESERVE_CONTRIBUTION_RECORDED` (por orden; incluye `policy_version`)
+
+- `GLOBAL_SUPPORT_QUOTA_EXCEEDED(country)`
+
+- `GLOBAL_RESERVE_BELOW_MIN_COVERAGE`
+
+- `EMERGENCY_ESCALATION_TRIGGERED(loss_case_id)` (ya existe como flujo)
+
+- `COUNTRY_TO_GLOBAL_REINSURANCE_TRANSFERRED` (si se habilita fuente C)
+
+Idempotencia:
+
+- Contribución por orden: `(order_id, platform_fee_earned_milestone_id)`
+
+- Transfer batch C: `(country_code, batch_date, policy_version)`
+
+- Recovery cycle: `(recovery_id, cycle_id)` (coherente con idempotencia estricta del Waterfall).
+
+---
+
+### 9) Observabilidad (mínimos)
+
+- `global_reserve_balance`
+
+- `global_reserve_inflow_total{source=A|B|C}`
+
+- `global_reserve_outflow_total{loss_type}`
+
+- `global_exposure_by_country`
+
+- `global_support_quota_breaches_total{country}`
+
+- `recovery_outstanding_total{country,col}` (derivado de recovery_accounts)
+
+---
+
+### 10) Seguridad y auditoría
+
+- Contribuciones (A) son automáticas por policy; quedan en ledger y audit con `policy_version`.
+
+- Recuperaciones (B) están definidas por Waterfall/Recovery y son obligatorias.
+
+- Transferencias C (si habilitadas) son batch con policy versionada y auditoría WORM; prohibidos movimientos manuales fuera de workflow.
+
+---
+
+### Conflictos/incoherencias que esto corrige
+
+1. **Global Reserve sin fuente de fondeo definida** → se define A (principal), B (recovery), y C (reaseguro opcional con límites).
+
+2. **Riesgo de “fee extra” al buyer** → no se agrega fee nuevo; se fondea desde platform fee (A) y flujos ya existentes (B). Se respeta el vector del motor unificado. .docx†L19-L30】
+
+3. **Moral hazard** → si Global paga, se crea deuda recuperable y recovery automático al COL.
+
+4. **Sin límites por país** → se introduce quota de exposición y gates de escalamiento a SAFE_RECOVERY/LOCKDOWN.
+
+---
+
+### Suposiciones (marcadas)
+
+- La subdivisión interna de `platform_fee_amount` en “net revenue vs global reserve contribution” no está textual; es consistente con que el motor unificado produce rates y el sistema exige snapshot/ledger/auditoría, sin alterar lo que paga el buyer. .docx†L8-L12】
+
+- La transferencia C “Country→Global reinsurance” es opcional y requiere política explícita; no contradice que Country Reserve sea custodia corporativa (no del COL) ni rompe anti-backpay.
+
+Si el siguiente paso es bajarlo a implementación, lo que falta definir (como enums/policies copy-paste) es: `purpose_code` contable para A/B/C, el esquema exacto de “earned schedule” del platform fee donde se dispara A, y los defaults iniciales por país/segmento/risk tier.

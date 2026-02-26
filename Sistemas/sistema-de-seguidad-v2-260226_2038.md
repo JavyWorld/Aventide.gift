@@ -1,0 +1,345 @@
+### Sistema de Seguridad v2.0 (Defense in Depth + Money/Delivery Zero-Trust) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Seguridad (Aventide Gift)”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema transversal que protege **CIA + Privacidad** (Confidencialidad, Integridad, Disponibilidad) y blinda los flujos críticos de Aventide Gift contra fraude/abuso:\
+**Identidad → Checkout → Pago/Escrow → Entrega (Tridente) → Settlement/Payout → Disputas/Auditoría** mediante “Defensa en Profundidad” (capas obligatorias A–H).
+
+**Objetivos:**
+
+1. Reducir fraude (compras falsas, no-entregado, colusión buyer/seller, abuso de refunds).
+
+2. Evitar pérdidas por errores técnicos: idempotencia en pagos/webhooks, anti-doble cobro, anti-doble payout.
+
+3. Gobernanza fuerte: RBAC + scopes geográficos + kill switches + auditoría WORM.
+
+4. Privacidad defendible: crypto-shredding bien aplicado + retención correcta (no borra ledger/AML).
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Perímetro (WAF/DDoS/CDN + rate limiting) y seguridad de API (gateway).
+
+- Identidad/autenticación (Firebase/Auth0) + sesión/JWT propio con claims + RBAC.
+
+- Gobernanza operativa geo: SuperAdmin define países/hubs/zones; Ops Lead opera solo su país; kill switch por zona.
+
+- Seguridad de entrega “Tridente” (PIN+GPS+Foto) con anti-replay + anti-abuso.
+
+- Auditoría inmutable (Black Box/WORM): roles, money trail, snapshots, entrega/legal.
+
+- Protección de datos: crypto-shredding + retención por clase + bóveda fiscal/cold storage.
+
+- Seguridad de archivos/evidencias (URLs firmadas, acceso por rol).
+
+- SDLC: NIST SSDF + SAST/DAST + secret scanning.
+
+- Integración con Observabilidad como “capa de detección” (SIEM + alertas).
+
+### Excluye
+
+- Implementación específica de proveedores (p.ej. reglas exactas de Rapyd/otros) más allá de los invariantes (idempotencia, dedupe, firma, etc.).
+
+- Política legal detallada por país (vive en el módulo legal/compliance), aunque Seguridad debe acoplarse a retenciones mínimas.
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER / SELLER** (externos).
+
+- **SUPPORT_AGENT / L2 / L3 (Ops Lead)** (internos).
+
+- **SUPER_ADMIN / SRE_ADMIN / FINANCE_ADMIN / RISK/T&S** (internos).
+
+- **SYSTEM/BOT** (workers, webhook handlers).
+
+### 3.2 Principios de gobernanza (reglas duras)
+
+- Claims de rol viajan en JWT; backend aplica middleware por permiso (no UI).
+
+- Scoping geográfico obligatorio para roles internos (country/hub/zone).
+
+- Operación de zonas:
+
+    - SuperAdmin define territorios,
+
+    - Ops Lead opera (on/off/kill switch) dentro del país.
+
+### 3.3 Guards (orden canónico)
+
+1. AuthGuard (token válido)
+
+2. Role/PermissionGuard
+
+3. ScopeGuard (geo)
+
+4. PolicyGuard (reglas por país/rol/feature)
+
+5. RiskGuard (fricción adaptativa: KYC/2FA/limitaciones)
+
+6. AuditGuard (razón obligatoria en acciones sensibles)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Autenticación y sesión unificada
+
+1. Usuario se autentica con Firebase/Auth0 (Google/Apple/Teléfono WhatsApp).
+
+2. Backend crea/actualiza usuario interno y emite JWT propio con roles/claims.
+
+**Regla web vs mobile:** web puede ser “view-only” para funciones sensibles de entrega; PoD real se ejecuta en mobile (GPS/foto).
+
+### 4.2 Entrega segura — Tridente (flujo core)
+
+4.2.1 Pre-check rápido
+
+`POST /order/{order_id}/validate-delivery` con GPS + PIN, validando geocerca \~300m.
+
+4.2.2 Confirmación forense (PoD)
+
+`POST /confirm-delivery` con `{ order_id, PIN, GPS, Foto_URL, Device_ID, nonce }` y validaciones:
+
+- **Estado e idempotencia**: solo ejecuta si la orden está en estado correcto; evita dobles confirmaciones.
+
+- **PIN one-time** 6–8 dígitos, guardado hasheado (Argon2/bcrypt).
+
+- **GPS**: validación espacial PostGIS + distancia máxima (\~300m).
+
+- **Foto**: evidencia obligatoria; URL firmada privada; acceso limitado por rol (Soporte/Legal).
+
+- **Anti-replay**: `nonce` obligatorio.
+
+- **Anti-abuso**: 3 fallos de PIN en 10 min → bloqueo temporal + alerta a Ops Lead.
+
+4.2.3 Separación PoD vs dinero (race condition eliminado)
+
+PoD **no libera dinero directamente**; se emite evento interno y un worker/cola ejecuta settlement/payout con idempotencia.
+
+4.2.4 Overrides (excepción controlada)
+
+Ops Lead puede forzar finalización solo por error técnico, exigiendo motivo+evidencia y auditándolo.
+
+4.2.5 Worldwide Shipping (caso especial)
+
+PIN deshabilitado; se valida por tracking del courier y PoD externo por webhook.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Defensa en profundidad (capas A–H obligatorias)
+
+**A) Edge:** CDN/WAF/DDoS + rate limiting en borde.\
+**B) App:** validación estricta + JWT/RBAC + reglas duras en endpoints críticos.\
+**C) Data:** cifrado + acceso mínimo + aislamiento (RLS/tenant).\
+**D) User:** 2FA/passkeys/biometría cuando aplique + controles anti-abuso.\
+**E) Trust:** KYC sellers + trust score buyer/seller para fricción adaptativa.\
+**F) Payments:** tokenización + PCI vía PSP.\
+**G) SDLC:** NIST SSDF + SAST/DAST + secret scanning.\
+**H) Observabilidad/SIEM:** alertas por anomalías de auth, drift de permisos, fraude.
+
+### 5.2 Prioridad de implementación (no negociable)
+
+1. Edge/WAF/Rate Limit + Auth/RBAC
+
+2. Tridente + Auditoría WORM
+
+3. Crypto-shredding + retención correcta
+
+4. SIEM/alertas + hardening continuo
+
+### 5.3 KYC dinámico (seguridad adaptativa)
+
+El nivel de verificación sube/baja según señales de riesgo/actividad (ej. “seller grande”).
+
+### 5.4 Comunicación segura
+
+No enviar info bancaria sensible por email/SMS; PIN por canal seguro (in-app/link seguro).
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 Black Box / Audit Logs (WORM, append-only)
+
+`audit_logs` con campos estándar (mínimo):
+
+- `actor_id`, `actor_role`, `action_type`
+
+- `resource_type`, `resource_id`
+
+- `changes` (JSONB old/new)
+
+- `metadata` (IP, UA, geo/scope, reason)
+
+- `created_at (UTC)`
+
+**Regla:** ni SuperAdmin puede DELETE/UPDATE; solo INSERT/SELECT (almacenamiento/tablas separadas).
+
+### 6.2 Evidencia de entrega
+
+- `delivery_proofs(order_id, photo_url_private, gps_lat, gps_lng, gps_accuracy, pin_hash, device_id, nonce, captured_at, validation_status)`\
+    **Acceso**: ABAC por rol (Support/Legal) con URLs firmadas.
+
+### 6.3 Crypto-shredding (claves por usuario)
+
+- `user_keys(user_id, kms_key_ref, created_at, rotated_at)`\
+    PII cifrada con clave por usuario; al “olvidar”, destruir la clave. Logs quedan, PII irrecuperable.
+
+### 6.4 Estado de cuenta para borrado/archivo
+
+- `account_status`: `DELETED_PENDING_ARCHIVE` para mover contable a bóveda fiscal/cold storage y eliminar presencia operativa/marketing.
+
+---
+
+## 7) Eventos y triggers + idempotencia
+
+### 7.1 Eventos mínimos de seguridad
+
+- `auth.login_succeeded/failed`
+
+- `rbac.role_changed`
+
+- `security.break_glass_started/ended`
+
+- `delivery.pod_precheck_failed`
+
+- `delivery.pod_captured`
+
+- `delivery.pod_validated`
+
+- `delivery.pin_failed_lockout`
+
+- `payments.webhook_received/deduped/invalid_signature`
+
+- `data.crypto_shred_executed`
+
+- `audit.certificate_generated`
+
+### 7.2 Idempotencia (regla dura)
+
+- PoD confirm: idempotencia por `(order_id)` + `nonce` + estado válido.
+
+- Webhooks: dedupe por `provider_event_id` + firma + ventana temporal.
+
+- Acciones admin: dedupe por `(action_type, resource_id, window)` + reason_code.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### 8.1 Auth (Firebase/Auth0)
+
+- Entrada: token federado
+
+- Salida: JWT propio con claims de rol/permisos
+
+### 8.2 PostGIS (geo-validación)
+
+- Validación de geocerca (\~300m) y pertenencia a zona/hub; no registrar coordenadas crudas en logs.
+
+### 8.3 Storage (evidencias)
+
+- Subida desde mobile con presigned URLs; evidencia privada con expiración controlada; accesible solo por roles autorizados.
+
+### 8.4 Observabilidad/SIEM
+
+- Alertas por anomalías de autenticación, drift de permisos, fraude, lockouts de PIN, invalid signature webhooks.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs) — aplicado a Seguridad
+
+(Observabilidad del módulo Seguridad, no la global.)
+
+### Métricas mínimas
+
+- `auth_fail_rate{country,method}`
+
+- `jwt_invalid_total{reason}`
+
+- `rbac_escalation_total{role}`
+
+- `pin_lockout_total{country,zone}`
+
+- `webhook_invalid_signature_total{provider}`
+
+- `webhook_dedup_total{provider}`
+
+- `pod_validation_fail_total{reason}`
+
+### Alertas mínimas
+
+- Invalid signature > 0 (posible ataque/misconfig)
+
+- Spikes en lockouts de PIN
+
+- Drift de permisos (role changes fuera de ventanas/volumen anormal)
+
+- PoD validations fallando en masa por país/zona (GPS/UX/proveedor)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+### 10.1 Black Box (capas auditadas)
+
+- Gobernanza/Roles: cambios RBAC, four-eyes, impersonation log.
+
+- Money Trail: overrides, fees, payouts manuales (conciliación).
+
+- Catálogo “Máquina del tiempo”: snapshots para órdenes.
+
+- Entrega/Legal: paquete de evidencia por intento + export de chat inmutable.
+
+### 10.2 Retención (por clase)
+
+- Financieros/legales: 7 años (referencia del doc).
+
+- Operativos: 1 año
+
+- Accesos: 90 días
+
+### 10.3 Regla final de coherencia (borrado)
+
+Crypto-shredding **NO** borra ledger/contable/AML; PII marketing/perfil sí. Contable se mueve a bóveda fiscal/cold storage.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Usuarios:** login federado + JWT propio + web vs mobile view-only en entrega.
+
+- **Jerarquía:** roles/scopes y kill switch por zona como control de riesgo.
+
+- **Órdenes:** Tridente como requisito de cierre y base de disputas.
+
+- **Soporte:** overrides (force complete) controlados + outcomes (sin montos manuales) se apoya en WORM.
+
+- **Observabilidad:** SIEM/alertas para anomalías y money pipeline.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Seguridad)
+
+1. **PoD liberando dinero directo (race/doble pago)** → corregido: PoD valida y un worker separado ejecuta settlement/payout con idempotencia.
+
+2. **“Derecho al olvido” borrando ledger** → corregido: crypto-shred solo PII no contable; contable a bóveda fiscal/cold storage con retención AML/KYC.
+
+3. **Logs con PII/coords crudas** → prohibición explícita; uso de hashing/masking y zone/hub en vez de lat/lng.
+
+4. **Overrides sin trazabilidad** → corregido: toda excepción exige motivo+evidencia y queda en Black Box WORM.
+
+5. **RBAC sin governance** → corregido: claims en JWT + middleware por permiso + alertas de escaladas raras + four-eyes/impersonation log.

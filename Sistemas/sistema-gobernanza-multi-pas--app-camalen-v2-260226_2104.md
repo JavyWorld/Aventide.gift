@@ -1,0 +1,540 @@
+### Sistema de Gobernanza multi-país + App Camaleón v2.0 (Policy Engine + Server-Driven UI) — corregido y unificado
+
+**Fuente de verdad:** “Sistema: Gobernanza multi-país + App Camaleón (Policy Engine + Server-Driven UI)”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema central que resuelve **qué reglas aplican** y **qué UI se renderiza** en tiempo real según un contexto: `país → hub/ciudad → zona`, rol (buyer/seller/ops/admin), intención (ASAP/programada), flags/experimentos y compliance. Es la “columna vertebral” para operar multi-país sin hardcode y sin releases constantes: **App Camaleón** (server-driven UI).
+
+**Objetivos (duros):**
+
+1. **Determinismo**: misma entrada (PolicyContext) ⇒ misma salida (ResolvedPolicy + UI Profile).
+
+2. **Precedencia única** para evitar contradicciones (cascada oficial).
+
+3. **Snapshot inmutable** de todo lo que afecte dinero/validaciones en la orden (pasado no cambia).
+
+4. **Cero hardcode por país**: UI y reglas cambian desde consola ops con auditoría + rollback.
+
+5. **Compatibilidad estructural**: fee credits solo contra platform_fee; ops_lead_fee y processing_fee non-discountable; coherente con motor financiero.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Modelo geo operativo: `Country → Hub/City → Zone` con resolución por `lat/lng` (point-in-polygon).
+
+- Policy Engine determinista: resuelve reglas operativas/financieras/compliance/UI constraints por contexto.
+
+- Server-Driven UI (“App Camaleón”): devuelve `ui_profile` firmado versionado con `ui_schema_version`, módulos y diccionario.
+
+- Feature flags/experimentos con precedencia explícita.
+
+- Consola “Regional OS”: edición visual de UI + rulesets + simulador + auditoría + rollback.
+
+- APIs mínimas: resolve context, fetch config UI, evaluate policies, simulate checkout.
+
+### Excluye
+
+- Cálculo detallado del breakdown monetario (Motor Financiero lo hace; aquí se inyectan reglas/límites).
+
+- Cobertura/Capacidad en sí: este sistema provee reglas y contexto; aquellos ejecutan.
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER/SELLER:** consumidores de policy+UI en app; seleccionan “entregar en…”.
+
+- **SYSTEM/BOT:** resolver contexto, evaluar policy, firmar configs, cache invalidation.
+
+- **COUNTRY_OPS_LEAD:** administra hubs/zones y rulesets; edita ui_profile; programa cambios; rollback.
+
+- **ADMIN:** acceso global; break-glass.
+
+- **AUDIT/FINANCE/LEGAL:** lectura de auditoría; vistas de diffs y snapshots.
+
+### 3.2 Permisos mínimos (namespaces)
+
+- `context.resolve` (app/system)
+
+- `policy.evaluate` (app/system)
+
+- `ui_profile.read` (app)
+
+- `ui_profile.edit` (ops lead; scoped)
+
+- `geo.manage` (ops lead; scoped)
+
+- `ruleset.manage` (ops lead; scoped)
+
+- `feature_flags.manage` (ops/admin)
+
+- `audit.read` (audit/finance)
+
+- `rollback.execute` (ops lead/admin; scoped)
+
+- `break_glass` (admin; razón obligatoria)
+
+### 3.3 Guards (orden canónico)
+
+1. AuthGuard
+
+2. ScopeGuard (country/hub/zone) para staff
+
+3. GeoIntegrityGuard (address con lat/lng obligatorio)
+
+4. PolicyPrecedenceGuard (aplica cascada oficial; bloquea keys no permitidas)
+
+5. UIConfigSecurityGuard (schema_version + firma + constraints)
+
+6. AuditGuard (diffs + quién/cuándo/qué)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Resolución de contexto geo (Context Resolve)
+
+**Happy path**
+
+1. App envía `POST /context/resolve` con `address_fields + lat/lng + delivery_intent`.
+
+2. Backend:
+
+- valida lat/lng (bloqueante),
+
+- resuelve `country_id`,
+
+- resuelve `hub_id`,
+
+- resuelve `zone_id` con `ST_Contains(geom, point)` + prioridad si overlap,
+
+- devuelve `zone_status` y `ruleset_versions[]`.
+
+**Edge cases**
+
+- Overlaps: permitido solo si hay `priority` y pruebas; si múltiples zonas contienen el punto, gana mayor `priority`.
+
+- Dirección sin coords: respuesta FAIL (la app no puede continuar checkout ni coverage).
+
+### 4.2 Evaluación de políticas (Policy Evaluate)
+
+**Happy path**
+
+1. App envía `POST /policy/evaluate` con `PolicyContext`.
+
+2. Engine aplica cascada de precedencia y produce `ResolvedPolicy` con secciones:
+
+- `operational_rules` (horarios, cutoffs, PoD/PIN, limits),
+
+- `financial_limits` (caps/cobros no descontables),
+
+- `compliance_rules` (KYC/AML, retención),
+
+- `ui_constraints` (qué pantallas/inputs son obligatorios),
+
+- `feature_flags_active[]`.
+
+**Edge cases**
+
+- Keys no permitidas en seller_overrides: se ignoran y se auditan como intento inválido (anti-“ifs infinitos”).
+
+### 4.3 App Camaleón (UI Profile fetch + hot reload)
+
+**Happy path**
+
+1. App hace `GET /config/ui-profile?country=...&hub=...&zone=...&role=...&app_version=...` con `ETag`.
+
+2. Backend devuelve:
+
+- `ui_profile` (theme/dictionary/modules/validation_rules),
+
+- `feature_flags`,
+
+- `ui_schema_version`,
+
+- `config_version`,
+
+- `signature`.
+
+1. App renderiza usando componentes existentes (“LEGO”) y aplica textos/colores/módulos sin inventar reglas.
+
+**Edge cases**
+
+- Si firma inválida o schema incompatible: fallback local (modo degradado) con mínima funcionalidad y aviso.
+
+- App cachea y solo refetch cuando ETag cambie (evita “pedir todo cada segundo”).
+
+### 4.4 Snapshot crítico en checkout (no reescribir historia)
+
+**Happy path**
+
+- En checkout/creación de orden se persiste:
+
+    - contexto geo (country/hub/zone),
+
+    - versions de rulesets aplicados,
+
+    - resolved policies relevantes,
+
+    - outputs del motor financiero.\
+        Cambios futuros en rulesets/UI no alteran órdenes pasadas.
+
+---
+
+## 5) Reglas y políticas (precedencia, límites, validaciones)
+
+### 5.1 Regla dura de direcciones
+
+“No existe dirección válida sin coordenadas (lat/long)”. Bloqueante.
+
+### 5.2 Cascada oficial de reglas (precedencia única)
+
+Orden exacto:
+
+1. `global_defaults`
+
+2. `country_rules`
+
+3. `hub_rules`
+
+4. `zone_rules`
+
+5. `seller_overrides` (solo llaves permitidas)
+
+6. `user_overrides` (raro, soporte/casos especiales)
+
+7. `experiments/feature_flags`
+
+**Corrección de incoherencia:** esta precedencia es el único mecanismo permitido; se prohíben reglas “ad-hoc” fuera de la cascada.
+
+### 5.3 Inmutabilidad por snapshot (dinero)
+
+- Todo lo que afecte dinero se snapshottea en la orden.
+
+### 5.4 Protección Fee Credits / No-Discountable
+
+Regla estructural:
+
+- Fee credits (FS) solo pueden reducir `platform_fee`.
+
+- `ops_lead_fee` y `processing_fee` son `non_discountable`.
+
+- `fee_credits_applied <= platform_fee`.
+
+### 5.5 Seguridad del UI Config (anti-tampering)
+
+Obligatorio:
+
+- `ui_schema_version` versionado
+
+- config firmada (server signature)
+
+- fallback local
+
+- cache con ETag
+
+### 5.6 Asignación geo distinta Buyer vs Seller
+
+- Seller: “estático” (pin/ubicación) → zone por `ST_Contains`.
+
+- Buyer: “dinámico por intención” (puede estar en otro país físicamente pero operar en país destino); la app muta por país destino.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 countries
+
+Campos mínimos:
+
+- `country_id`, `country_code` (CO/DO/US)
+
+- `currency`, `timezone_default`
+
+- `tax_model` (incluido vs agregado)
+
+- `payments_catalog`
+
+- `default_fee_rules`
+
+- `compliance_profile`
+
+Índices:
+
+- unique(`country_code`)
+
+### 6.2 hubs
+
+- `hub_id`, `country_id`
+
+- `name`, `timezone`
+
+- `holidays[]`
+
+- `operational_floors/minimums`
+
+- `status`
+
+Índices:
+
+- (`country_id`,`status`)
+
+### 6.3 zones (PostGIS)
+
+Campos mínimos:
+
+- `zone_id`, `hub_id`
+
+- `geom` (POLYGON/MULTIPOLYGON)
+
+- `priority` (int)
+
+- `active` (bool)
+
+- `zone_type` (premium/normal)
+
+- `requirements_json` (foto obligatoria, PIN, etc.)
+
+- `status` (ACTIVE/INACTIVE/SATURATED)
+
+Índices/constraints:
+
+- GiST(`geom`)
+
+- (`hub_id`,`active`,`priority`)
+
+- Overlap policy: permitido solo con priority + auditoría.
+
+### 6.4 rulesets (versionados)
+
+Campos mínimos:
+
+- `ruleset_id`, `level` (GLOBAL|COUNTRY|HUB|ZONE)
+
+- `scope_id` (nullable si GLOBAL)
+
+- `version`
+
+- `status` (DRAFT|ACTIVE|ARCHIVED)
+
+- `effective_from`, `effective_to`
+
+- `json_rules`
+
+- `created_by`, `created_at`
+
+Índices:
+
+- (`level`,`scope_id`,`status`,`effective_from`)
+
+- unique(`level`,`scope_id`,`version`)
+
+### 6.5 ui_profiles (server-driven)
+
+Campos mínimos:
+
+- `profile_id`
+
+- `country_code`, `hub_id?`, `zone_id?` (scopes)
+
+- `role` (buyer/seller/ops)
+
+- `ui_schema_version`
+
+- `config_version`
+
+- `json_config` (theme/dictionary/modules/validation_rules)
+
+- `signature`
+
+- `status` (ACTIVE/ARCHIVED)
+
+- `effective_from/to`
+
+Índices:
+
+- (`country_code`,`role`,`status`,`effective_from`)
+
+- (`ui_schema_version`,`config_version`)
+
+### 6.6 feature_flags
+
+- `flag_key`
+
+- `scope` (GLOBAL/COUNTRY/HUB/ZONE/USER)
+
+- `scope_id`
+
+- `enabled`
+
+- `variant` (A/B)
+
+- `effective_from/to`
+
+### 6.7 audit_logs (append-only idealmente WORM)
+
+- `id`, `actor_id`, `actor_role`
+
+- `entity_type`, `entity_id`
+
+- `action`, `diff_json`
+
+- `created_at`
+
+- `reason_code`
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos
+
+- `CONTEXT_RESOLVED`
+
+- `RULESET_PUBLISHED` / `RULESET_ROLLED_BACK`
+
+- `UI_PROFILE_PUBLISHED` / `UI_PROFILE_ROLLED_BACK`
+
+- `ZONE_STATUS_CHANGED`
+
+- `FEATURE_FLAG_CHANGED`
+
+- `CHECKOUT_POLICY_SNAPSHOTTED`
+
+### Idempotencia
+
+- Publish ruleset: idempotente por `(ruleset_id, version)`
+
+- Publish ui_profile: idempotente por `(profile_id, config_version)`
+
+- Context resolve: cacheable por `(address_hash, geo_version)` con invalidación por cambios de zones (Suposición: consistente con “cache zone_id por address” y “queries lentas geo” del doc).
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Motor Financiero Dinámico (Sistema #2)
+
+Consume:
+
+- `PolicyContext` + reglas vigentes + promos/flags.\
+    Produce:
+
+- breakdown checkout,
+
+- blueprint ledger/escrow,
+
+- snapshot para la orden.\
+    Invariantes:
+
+- FS solo contra platform_fee,
+
+- ops_lead_fee y processing_fee non-discountable.
+
+### Cobertura/Capacidad/Disponibilidad
+
+- Coverage y decisión “puede entregar aquí” usa lat/lng + zones.
+
+- Horarios/cutoffs/feriados/cupos/pausas se inyectan como `operational_rules` por país/hub/zona.
+
+### UI + Búsqueda + Descubrimiento
+
+- UI Profile gobierna módulos Home, filtros, categorías, campañas.
+
+- Search/Ranking debe recibir `hub_id/zone_id` como contexto (ranking local).
+
+### Notificaciones
+
+- Idioma, textos legales, campañas locales (San Valentín vs Amor y Amistad) se gobiernan desde config/temporada.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `context_resolve_latency_ms_p50/p95`
+
+- `zone_resolution_miss_total` (sin zone)
+
+- `zone_overlap_hits_total`
+
+- `policy_evaluate_latency_ms_p50/p95`
+
+- `ui_profile_fetch_total{country,role}`
+
+- `ui_profile_etag_hits_rate`
+
+- `ruleset_publish_total{level,country}`
+
+- `rollback_total{entity_type,country}`
+
+- `config_signature_fail_total`
+
+### Alertas
+
+- `config_signature_fail_total > 0` (tampering/bug crítico)
+
+- `zone_resolution_miss_total` alto (polígonos rotos o geocode degradado)
+
+- latencia de policy_evaluate sube (riesgo UX y checkout)
+
+- rollbacks frecuentes (governance inestable)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- **Firma de UI config** obligatoria; app rechaza configs no firmadas o schema incompatible y entra en fallback.
+
+- Auditoría WORM-style para cambios en:
+
+    - zonas (geom/priority/status),
+
+    - rulesets (diffs),
+
+    - ui_profiles (diffs),
+
+    - feature flags.
+
+- Rollback rápido: siempre disponible con historial.
+
+- Snapshot de policies y reglas monetarias en la orden como evidencia inmutable.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Cobertura:** dirección sin coords bloquea; zones determinan restricciones y requirements (foto obligatoria, etc.).
+
+- **Capacidad/Disponibilidad:** reglas temporales por hub/zona inyectadas por policy engine.
+
+- **Motor Financiero:** invariantes fee credits + non-discountable y snapshot.
+
+- **UI/UX:** server-driven UI profile firmado + schema version + ETag cache.
+
+- **Notificaciones:** idioma/legal/campañas por país/temporada desde rulesets/config.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Gobernanza + App Camaleón)
+
+1. **Hardcode por país (releases constantes)** → eliminado: policy engine + UI server-driven por contexto.
+
+2. **Direcciones sin coordenadas** → bloqueante: no hay checkout/cobertura/zona sin lat/lng.
+
+3. **Reglas contradictorias por múltiples fuentes** → corregido: cascada oficial única con precedencia fija.
+
+4. **Cambios de reglas rompen órdenes pasadas** → corregido: snapshot inmutable en checkout.
+
+5. **UI config vulnerable a tampering** → corregido: firma + schema version + fallback + ETag cache.
+
+6. **Fee credits comiéndose costos de terceros** → corregido: FS solo contra platform_fee; ops_lead_fee y processing_fee non-discountable.

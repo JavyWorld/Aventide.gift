@@ -1,0 +1,508 @@
+### Sistema de Referidos v2.0 (Referral Program) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Referido y Crédito Interno” (sección 10.X E).
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Programa de adquisición y activación que atribuye un **referrer (buyer existente)** a un **referred (buyer nuevo)** y paga recompensas **solo después** de una “primera orden válida”, usando **AP** (Aventide Points) y opcionalmente **FS** (Fee Shields), con ledger auditable y reversión por fraude/refund/chargeback/disputa.
+
+**Objetivos (duros):**
+
+1. Adquirir nuevos buyers y aumentar recurrencia **sin afectar Seller Net** ni `items_subtotal`.
+
+2. Mantener filosofía: **FS solo contra Platform Fee** y si referidos otorgan FS, cuenta dentro de caps mensuales de FS del buyer.
+
+3. Ser determinista: estados + ventana de atribución + hold windows + catálogo de reglas por país (server-driven).
+
+4. Ser reversible: toda recompensa registrada en ledger y reversible por eventos negativos.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Generación de `referral_code` único por buyer (`AG-XXXXXX`).
+
+- Atribución por link/código pre/durante signup u onboarding.
+
+- Evaluación de “primera orden válida” usando **EOV** alineado con Lealtad.
+
+- Flujo determinista de estados de atribución.
+
+- Pago de recompensas en AP y opcional FS, con caps y políticas por país.
+
+- Anti-abuso mínimo obligatorio (device/payment fingerprint/cluster checks).
+
+- Reversión por refund/chargeback/disputa/fraude.
+
+### Excluye
+
+- “Créditos internos” (BSC/GCC) como sistema general de wallets: aquí solo se usa **AP** y opcional **FS** (y siempre bajo reglas de FS).
+
+- UI completa: solo contratos mínimos (pantallas listadas al final).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER (Referrer):** comparte código/link y ve estados/rewards.
+
+- **BUYER (Referred):** se registra con código/link y hace primera orden.
+
+- **SYSTEM/BOT:** atribución, evaluación de primera orden, holds, aprobación, ledger, reversión.
+
+- **ADMIN (Config):** configura policy por país (versionada) y ve métricas, budgets, clusters de fraude.
+
+### 3.2 Permisos mínimos
+
+- `referrals.read.own` (buyer)
+
+- `referrals.apply_code` (referred en onboarding)
+
+- `referrals.invite.generate_link` (buyer)
+
+- `referrals.policy.read` (admin/ops)
+
+- `referrals.policy.write` (admin; scope país)
+
+- `referrals.fraud.block` (risk/admin; scope país)
+
+- `referrals.ledger.read` (finance/audit)
+
+### 3.3 Guards (enforcement)
+
+1. AuthGuard
+
+2. OwnershipGuard (buyer)
+
+3. ScopeGuard (admin)
+
+4. PolicyGuard (`referral_policy(country_id)` versionada)
+
+5. RiskGuard (trust score, chargeback_90d, clusters)
+
+6. IdempotencyGuard (no duplica atribución ni grants)
+
+7. AuditGuard (toda acción sensible se registra)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Generación y distribución del referral_code
+
+**Happy path**
+
+1. Al crear buyer se asigna `referral_code` único: `AG-XXXXXX`.
+
+2. Se ofrece link con el code embebido para compartir.
+
+**Edge cases**
+
+- Colisión de código: regenerar (unique constraint).
+
+- Buyer bloqueado por fraude: `status=DISABLED` en `referral_codes` evita uso.
+
+### 4.2 Atribución (signup/onboarding)
+
+**Happy path**
+
+1. Usuario usa link/código antes o durante signup, o lo ingresa en onboarding.
+
+2. Se crea `referral_attribution` con:
+
+    - `referrer_id`, `referred_id`,
+
+    - `attributed_at`,
+
+    - estado `ATTRIBUTED`,
+
+    - `risk_flags_json` (si aplica).
+
+3. Transición inmediata a `PENDING_FIRST_ORDER`.
+
+**Regla dura: “un referred solo puede tener 1 referrer”**
+
+- “Último código válido dentro de ventana gana”.\
+    **Corrección anti-incoherencia:** para evitar manipulación infinita, el “último gana” se limita a `attribution_window_days` (default 14). Dentro de esa ventana se permite overwrite; fuera, queda bloqueado.
+
+**Edge cases (fraude/bloqueo)**\
+Autorreferido bloqueado (FRAUD_BLOCKED) si coincide:
+
+- mismo teléfono,
+
+- mismo documento (si hay KYC),
+
+- mismo payment fingerprint,
+
+- mismo device cluster.
+
+### 4.3 Primera orden válida (criterios)
+
+**Definición dura:** “Primera orden válida” si:
+
+- `order.status = COMPLETED`
+
+- `EOV ≥ min_first_order_eov` (default equiv a $25 en moneda local)
+
+- pasa ventana de seguridad sin disputa/refund:
+
+    - referido: `hold_hours_referred` (default 48h)
+
+    - referrer: `hold_days_referrer` (default 14d)
+
+**EOV (idéntico a Lealtad)**\
+`EOV = (items_subtotal - seller_coupon_discount) + delivery_fee_if_applicable`\
+Excluye: `taxes, platform_fee, ops fee, processing fee`.
+
+**Happy path**
+
+1. Orden completada → sistema detecta si es la primera del referred.
+
+2. Si cumple EOV y estado, set:
+
+    - `first_order_id`,
+
+    - `first_order_completed_at`,
+
+    - `status = FIRST_ORDER_COMPLETED`.
+
+3. Entra en `HOLDING` hasta que se cumplan ambos holds.
+
+**Edge cases**
+
+- Refund parcial/total que deja EOV < mínimo durante hold → `REVOKED`.
+
+- Disputa abierta y perdida durante hold → `REVOKED`.
+
+- Chargeback → `REVOKED` + señales de riesgo.
+
+### 4.4 Anti-abuso y límites (antes de aprobar)
+
+Antes de mover a `APPROVED`, se aplica:
+
+- `max_rewards_per_referrer_90d` (default 10)
+
+- `max_rewards_per_device_90d` (default 3)
+
+- `max_rewards_per_payment_fingerprint_90d` (default 3)
+
+- gating mínimo para liberar FS y para referrer siempre:
+
+    - phone verificado,
+
+    - trust score ≥ threshold,
+
+    - sin chargebacks 90d,
+
+    - cluster checks,
+
+    - rate limit en validación de códigos.
+
+Si falla gating fuerte → `FRAUD_BLOCKED` (si evidencia fuerte) o `REVOKED` (si evento negativo).
+
+### 4.5 Aprobación y pago de recompensas (ledger)
+
+**Happy path**\
+Cuando se cumplen holds y límites:
+
+1. `status = APPROVED`
+
+2. Se crean ledger entries (AP):
+
+- `AP_GRANT_REFERRAL_REFERRED` (+reward_referred_ap)
+
+- `AP_GRANT_REFERRAL_REFERRER` (+reward_referrer_ap)
+
+1. (Opcional) FS:
+
+- `FS_GRANT_REFERRAL_REFERRED` (+reward_referred_fs_usd_equiv)
+
+- `FS_GRANT_REFERRAL_REFERRER` (+reward_referrer_fs_usd_equiv)
+
+**Regla dura de caps FS**\
+Si otorga FS por referidos:
+
+- cuenta dentro del cap mensual de FS del buyer.
+
+- si excede cap, el excedente:
+
+    - **se difiere al próximo mes**, o
+
+    - **se convierte a AP**\
+        **Corrección de incoherencia:** se debe elegir **1** estrategia por país y mantenerla fija (no mezclar).
+
+**Budget global de país (FS)**\
+`budget_fs_monthly_country`: FS de referidos no excede X% de Platform Fee revenue del país.\
+**Enforcement:** si el budget se agota:
+
+- seguir otorgando AP,
+
+- y FS queda en `PENDING_BUDGET` (sub-estado interno) o se omite (según policy país; se define en policy).\
+    **Suposición:** el documento define el budget pero no el comportamiento exacto al agotarse; se mantiene determinismo via policy.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 referral_policy(country_id) versionada (server-driven)
+
+Campos mínimos (default del doc):
+
+- `attribution_window_days` (14)
+
+- `min_first_order_eov` (≈ $25 local)
+
+- `hold_days_referrer` (14)
+
+- `hold_hours_referred` (48)
+
+- `reward_referred_ap` (35,000)
+
+- `reward_referrer_ap` (15,000)
+
+- (opcional) `reward_referred_fs_usd_equiv` (1.00)
+
+- (opcional) `reward_referrer_fs_usd_equiv` (1.00)
+
+- `budget_fs_monthly_country`
+
+- `max_rewards_per_referrer_90d` (10)
+
+- `max_rewards_per_device_90d` (3)
+
+- `max_rewards_per_payment_fingerprint_90d` (3)
+
+- `eligibility_min_trust_score_referrer` (40)
+
+- `eligibility_min_trust_score_referred` (40 para recibir FS; AP puede ser más flexible)
+
+- `block_if_chargeback_90d` (true)
+
+### 5.2 Regla de “último código válido gana” (sin abuso)
+
+- Solo es válido si ocurrió dentro de `attribution_window_days`.
+
+- Una vez que el referred hace `FIRST_ORDER_COMPLETED`, la atribución queda “locked” (no más overwrite).\
+    **Suposición:** el doc no define explícitamente el lock post-primera orden, pero es consistente con la máquina de estados determinista y evita manipulación.
+
+### 5.3 Autorreferido y clusters
+
+- Si señales fuertes → `FRAUD_BLOCKED` (terminal).
+
+- Las señales mínimas definidas en doc se guardan como `risk_flags_json` y pueden alimentar T&S.
+
+### 5.4 Reversibilidad
+
+Cualquier evento negativo durante hold o post-grant:
+
+- refund que invalida EOV mínimo,
+
+- chargeback,
+
+- disputa perdida,
+
+- fraude confirmado\
+    ⇒ `status = REVOKED` y ledger de reversión.
+
+### 5.5 FS gastado y luego revertido
+
+Si FS ya fue gastado:
+
+- registrar `FS_NEGATIVE_ADJUSTMENT`
+
+- bloquear uso de FS hasta cubrir saldo **o**
+
+- absorber como `Marketing_Expense`\
+    **Regla dura:** escoger **1** por país (policy), no mezclar.
+
+---
+
+## 6) Modelo de datos (mínimo)
+
+### 6.1 referral_codes
+
+`referral_codes(buyer_id, code, created_at, status)`\
+Índices:
+
+- unique(`code`)
+
+- unique(`buyer_id`)
+
+### 6.2 referral_attributions
+
+`referral_attributions(id, referrer_id, referred_id, status, attributed_at, first_order_id, first_order_completed_at, approved_at, revoked_at, risk_flags_json)`\
+Índices:
+
+- unique(`referred_id`) WHERE status IN (ATTRIBUTED,PENDING_FIRST_ORDER,FIRST_ORDER_COMPLETED,HOLDING,APPROVED) (o único absoluto y solo 1 fila con updates)
+
+- (`referrer_id`, `attributed_at`)
+
+- (`status`, `attributed_at`)
+
+### 6.3 referral_policy_versions
+
+`referral_policy_versions(country_id, version, json_policy, active_from)`\
+Índices:
+
+- unique(`country_id`, `version`)
+
+- (`country_id`, `active_from`)
+
+### 6.4 referral_events (append-only)
+
+`referral_events(attribution_id, type, payload_json, created_at)`\
+Tipos esperados (mínimo coherente con estados):
+
+- `ATTRIBUTED`
+
+- `ATTRIBUTION_OVERWRITTEN`
+
+- `FIRST_ORDER_COMPLETED`
+
+- `HOLD_STARTED`
+
+- `APPROVED`
+
+- `REVOKED`
+
+- `FRAUD_BLOCKED`
+
+- `REWARD_GRANTED_AP`
+
+- `REWARD_GRANTED_FS`
+
+- `REWARD_REVOKED_AP`
+
+- `REWARD_REVOKED_FS`
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### 7.1 Eventos analíticos (existentes en docs)
+
+- `REFERRAL_INVITE_SENT`
+
+- `REFERRAL_LINK_CLICKED`
+
+- `REFERRAL_SIGNUP_ATTRIBUTED`
+
+- `REFERRAL_FIRST_ORDER_COMPLETED`
+
+- `REFERRAL_REWARD_GRANTED`
+
+- `REFERRAL_REWARD_REVOKED`
+
+### 7.2 Triggers internos (operativos)
+
+- On signup completion → intentar atribución
+
+- On order COMPLETED → evaluar primera orden y EOV
+
+- On hold timers → intentar aprobar
+
+- On refund/chargeback/disputa perdida → reversión
+
+### 7.3 Idempotencia (reglas duras)
+
+- `ATTRIBUTION`: idempotente por `(referred_id, referrer_id, window_key)`
+
+- `FIRST_ORDER_EVAL`: idempotente por `(referred_id, first_order_id)`
+
+- `REWARD_GRANT`: idempotente por `(attribution_id, reward_type, policy_version)`
+
+- `REWARD_REVOKE`: idempotente por `(attribution_id, reward_type, original_ledger_entry_id)`
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Lealtad (AP/FS)
+
+- Referidos “mintean” AP y opcional FS usando el mismo ledger (o ledger compatible).
+
+- FS respeta caps mensuales y reglas de uso (solo Platform Fee).
+
+### Órdenes / Pagos / Disputas
+
+- Consumir `ORDER_COMPLETED` y snapshot financiero para EOV.
+
+- Consumir eventos de `REFUND_EXECUTED`, `CHARGEBACK_RECEIVED`, `DISPUTE_RESOLVED` para reversión.
+
+### Trust / Anti-fraude
+
+- Exportar `risk_flags_json` y clusters a T&S.
+
+- Consumir `trust_score`, chargebacks 90d, device/payment fingerprint.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `referrals_attributed_total{country}`
+
+- `referrals_first_order_completed_total{country}`
+
+- `referrals_approved_total{country}`
+
+- `referrals_revoked_total{reason,country}`
+
+- `referrals_fraud_blocked_total{signal,country}`
+
+- `referrals_rewards_granted_ap_total{country}`
+
+- `referrals_rewards_granted_fs_total{country}`
+
+- `referrals_budget_fs_blocked_total{country}`
+
+### Alertas
+
+- Spike de `fraud_blocked` (ataque)
+
+- Spike de `revoked` por chargeback (fraude o bug)
+
+- Budget FS agotado temprano (config errada o ataque)
+
+- Duplicación detectada (idempotency failures)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Ledger append-only para AP/FS grants y reversals con links a `attribution_id` y `first_order_id`.
+
+- Guardar `payment fingerprint`/device cluster de forma **hash/opaque** (no PII directo) en `risk_flags_json` y logs de seguridad. (Suposición: consistente con políticas de no PII cruda.)
+
+- `FRAUD_BLOCKED` requiere `risk_flags_json` con señales y timestamps; no se puede revertir sin acción admin auditada.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Lealtad:** AP y FS con las mismas definiciones; FS cuenta en caps mensuales y solo aplica contra Platform Fee.
+
+- **Motor financiero:** EOV consistente (excluye taxes/fees/processing), cupón seller-funded ya descontado.
+
+- **Disputas/Refunds:** reversión automática de rewards; FS gastado genera negative adjustment o marketing expense según policy país.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Referidos)
+
+1. **“Referido descuenta al seller”** → prohibido: nunca reduce `items_subtotal` ni payout del seller.
+
+2. **Mezclar FS sin caps** → corregido: FS de referidos cuenta dentro del cap mensual de FS; excedentes siguen regla única por país (diferir o convertir a AP).
+
+3. **Atribución reescribible indefinidamente** → corregido: overwrite solo dentro de `attribution_window_days` y lock post “primera orden completada”.
+
+4. **Fraude/autorreferido ambiguo** → corregido: señales explícitas (phone/doc/payment fingerprint/device cluster) ⇒ `FRAUD_BLOCKED`.
+
+5. **Rewards no reversibles** → corregido: ledger reversible por refund/chargeback/disputa/fraude; manejo de FS gastado definido por policy única por país.

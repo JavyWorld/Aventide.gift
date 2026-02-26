@@ -1,0 +1,604 @@
+### Sistema de Pagos v2.0 (Checkout Financial Engine + Escrow + Split + Ledger + Payouts) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Pagos — Aventide Gift”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema responsable de:
+
+- Cobrar al buyer con métodos locales,
+
+- Retener fondos en **escrow**,
+
+- Liberar fondos **solo** con prueba de entrega (Tridente) pero **separando** validación vs ejecución,
+
+- Ejecutar **split** automático (Seller / Aventide / Country Ops Lead),
+
+- Registrar todo en un **ledger interno inmutable**,
+
+- Generar **facturación/recibos por país**,
+
+- Manejar disputas/chargebacks mediante **Saga idempotente** sin montos manuales.
+
+**Objetivos:**
+
+1. “No double charge / no double payout”: idempotencia + webhooks + reconciliación.
+
+2. “Dinero retenido”: no sale de escrow sin entrega confirmada o decisión de disputa.
+
+3. “Snapshot manda”: fees/taxes/processing se **snapshottean** en la orden para no cambiar retrospectivamente.
+
+4. “Soporte no inventa montos”: outcomes → buckets → cálculo determinístico → saga.
+
+5. Multi-país server-driven: allowlist métodos + torre de precios + riesgo/payout policies.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- **Rapyd Collect** (cobro buyer) + **Rapyd Wallets/Escrow** (retención) + **Rapyd Disburse** (payouts).
+
+- Checkout financial engine (“Torre de Precios”) con gross-up cuando aplica.
+
+- Estados financieros acoplados a la máquina de órdenes (alto nivel).
+
+- PoD (Tridente) como gatillo lógico; ejecución financiera via worker para evitar race conditions.
+
+- Split de fondos por orden y ledger inmutable como fuente contable.
+
+- Payouts/cashout con límites por país + KYC thresholds + rolling reserve.
+
+- Disputas + chargebacks con Saga idempotente y outcomes predefinidos.
+
+- Billing: comprobantes/facturas por país + PDFs WORM/Object Lock.
+
+### Excluye
+
+- La UI/UX de checkout (solo contratos).
+
+- Motor legal específico por país fuera de configuración (solo integración por policy/retención).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER:** paga, ve recibos.
+
+- **SELLER:** configura payout method, ve saldo y retiros.
+
+- **COUNTRY_OPS_LEAD:** recibe su fee (ops), ve reportes de su país.
+
+- **FINANCE_ADMIN / FINANCE_REVIEWER:** conciliación, aprobaciones para reembolsos grandes.
+
+- **SUPPORT_AGENT/L2:** selecciona outcomes (no ejecuta montos).
+
+- **SYSTEM/BOT:** webhooks, workers (escrow release, split, ledger, payout, billing, reconciliation).
+
+### 3.2 Permisos mínimos (namespaces)
+
+- `payments.checkout.create`
+
+- `payments.methods.read` (buyer)
+
+- `payments.receipts.read` (buyer)
+
+- `wallet.balance.read` (seller/ops)
+
+- `wallet.cashout.request` (seller/ops)
+
+- `wallet.cashout.approve_large` (finance reviewer, si aplica)
+
+- `payments.webhooks.process` (system)
+
+- `payments.escrow.release` (system)
+
+- `payments.split.execute` (system)
+
+- `ledger.read` (finance/audit)
+
+- `billing.invoice.issue` (system/finance)
+
+- `disputes.outcome.select` (support L2)
+
+- `disputes.saga.execute` (system)
+
+### 3.3 Guards (backend manda)
+
+1. Auth
+
+2. PermissionGuard
+
+3. ScopeGuard (country_code obligatorio para operaciones internas multi-país)
+
+4. PolicyGuard (allowlist de métodos, fees, payout limits, dispute policy)
+
+5. StateGuard (compatibilidad con estados de orden: CREATED/PAID_IN_ESCROW/…)
+
+6. MoneyGuard (prohíbe montos manuales; solo fórmulas/outcomes)
+
+7. AuditGuard (razón obligatoria en acciones sensibles)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Checkout → Cobro buyer (Rapyd Collect) + snapshot
+
+**Happy path**
+
+1. App pide métodos: `GET /payments/methods?country&currency` → servidor devuelve allowlist por país.
+
+2. Se calcula la Torre de Precios con config del país.
+
+3. Se crea orden con `locked_fee_structure`, `locked_tax_config`, `locked_processing_fee` (snapshot).
+
+4. Buyer paga → `rapyd_transaction_id` guardado.
+
+5. Orden pasa a `PAID_IN_ESCROW` (fondos “congelados” en Rapyd Wallets/Escrow).
+
+**Edge cases**
+
+- Webhook duplicado: dedupe por `provider_event_id` / `rapyd_transaction_id`.
+
+- Pago aprobado pero webhook tardío: se reconcilia por polling/conciliación (ver 9).
+
+### 4.2 Entrega (Tridente) → liberación segura (separación validación vs ejecución)
+
+**Regla dura:** validación PoD y ejecución financiera van separadas para evitar dobles liberaciones/race.
+
+**Fase A (App seller):**
+
+- Foto → QR/PIN → envía `{PIN_input, Foto_URL, GPS, Device_ID}`.
+
+**Fase B (Backend juez):**
+
+- Rate limit intentos,
+
+- valida geo (<300m),
+
+- valida hash del PIN (nunca PIN plano),
+
+- valida estado e idempotencia.
+
+**Fase C (Worker pagos):**
+
+- Cambia a `DELIVERED_PENDING_RELEASE`,
+
+- emite evento a cola,
+
+- worker llama a Rapyd: **release escrow + split**,
+
+- escribe ledger,
+
+- termina `COMPLETED`.
+
+**Edge cases**
+
+- Buyer ausente/GPS falla: `Force Complete` con evidencia y aprobación Ops Lead.
+
+- Extorsión del PIN: seller marca “Entrega Conflictiva” → disputa automática y escrow congelado.
+
+- Worldwide shipping: PIN deshabilitado, PoD via tracking/courier.
+
+### 4.3 Split de fondos (release)
+
+Modelo base por orden (siempre snapshotteado):
+
+- Seller recibe `P` (subtotal neto tras cupón seller).
+
+- Ops Lead recibe `ops_lead_fee_pct * P`.
+
+- Aventide recibe `platform_fee_pct * P`.
+
+- Processing fee y taxes se tratan según config del país y snapshot.
+
+**Edge cases**
+
+- Processing fee no refundable: queda como `ExternalCosts` si hay refund/disputa.
+
+### 4.4 Payouts / Cashout (Rapyd Disburse)
+
+**Happy path**
+
+- Seller solicita retiro → validar límites por país:
+
+    - `cashout_min`,
+
+    - `cashout_max_daily`,
+
+    - `payout_kyc_threshold`,
+
+    - `rolling_reserve_pct`.
+
+- Ejecutar `Rapyd Disburse`, registrar resultado y ledger.
+
+**Edge cases**
+
+- KYC threshold alcanzado: bloquear cashout hasta completar KYC.
+
+- Rolling reserve activo: solo parte del balance es “available_to_cashout”; el resto queda reservado.
+
+### 4.5 Disputas / Refunds / Chargebacks (Saga determinística)
+
+**Regla dura:** Soporte elige outcome template + banda/items; el sistema calcula buckets desde snapshot + policy; ejecuta Saga idempotente.
+
+Flujo:
+
+1. `DISPUTE_OPENED` (lock por order_id, hold fondos)
+
+2. `OUTCOME_SELECTED` (sin montos manuales)
+
+3. `OUTCOME_COMPUTED` (buckets)
+
+4. `EXECUTE_REFUND` (si aplica; idempotency key refund:{order}:{dispute}:{attempt})
+
+5. `EXECUTE_RELEASE/CLAWBACK` (release parcial o retención; idempotency key release:{order}:{dispute})
+
+6. `LEDGER_ADJUSTMENTS`
+
+7. `DISPUTE_RESOLVED`
+
+**Platform Fee protegido:** earned schedule por hitos + override por culpa (fault) (no % fijo).\
+**ExternalCosts:** bucket formal (processing/chargeback/dispute fees) con “External Cost Shield”.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Configuración por país (server-driven)
+
+Incluye:
+
+- allowlist métodos por país/moneda,
+
+- fee structure (platform/ops/processing/tax),
+
+- payout/riesgo (min/max, KYC threshold, reserve),
+
+- dispute policy.
+
+### 5.2 Snapshot financiero inmutable en orden (invariante)
+
+- Nada financiero se “recalcula” retroactivamente.
+
+- Cambios futuros de fees/impuestos afectan solo órdenes nuevas.
+
+### 5.3 Orden de cálculo (Torre de Precios)
+
+Según doc:
+
+1. Subtotal seller = `P`
+
+2. Cupón seller reduce net seller y sobre ese net se calculan fees posteriores
+
+3. Platform Fee + Ops Lead Fee
+
+4. Fee Credits (lealtad) solo descuentan Platform Fee y están matemáticamente limitados
+
+5. Taxes según país (incluye tax_rate_on_fees, tax included si aplica)
+
+6. Processing Fee (pct+flat) integrado consistentemente (incluye gross-up cuando aplica)
+
+**Gross-up ejemplo:** `Total_Final = (Subtotal + flat) / (1 - r)`.
+
+### 5.4 Protocolo PIN / entrega segura
+
+- PIN 6 dígitos + QR; guardar hash+salt (Argon2/bcrypt).
+
+- Geocerca <300m.
+
+- Foto obligatoria antes de permitir PIN.
+
+- 3 fallos / 10 min → lockout + alerta Ops Lead.
+
+- PIN por WhatsApp → fallback SMS; evitar lockscreen; usar link mágico.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 Payment Transaction (provider)
+
+`payment_transactions`
+
+- `payment_id` (UUID)
+
+- `order_id`
+
+- `provider` = RAPYD
+
+- `rapyd_transaction_id` (unique)
+
+- `status` (INITIATED/AUTHORIZED/ESCROWED/FAILED/REFUNDED/CHARGEBACK)
+
+- `amount`, `currency`, `amount_usd`, `fx_rate`
+
+- `country_code`
+
+- `created_at`, `updated_at`
+
+Índices:
+
+- unique(`rapyd_transaction_id`)
+
+- (`order_id`)
+
+- (`country_code`, `status`, `created_at`)
+
+### 6.2 Order Financial Snapshot (locked)
+
+`order_financial_snapshot` (1:1 con order_id)
+
+- `items_subtotal`
+
+- `seller_coupon_discount`
+
+- `delivery_fee`
+
+- `tax_amount`
+
+- `platform_fee`
+
+- `ops_fee`
+
+- `processing_fee` (estimated/actual)
+
+- `total_paid`
+
+- `locked_fee_structure` (pct/flat)
+
+- `locked_tax_config`
+
+- `locked_processing_config`
+
+- `policy_version`, `fee_rule_id`
+
+### 6.3 Escrow / Release Plan
+
+`escrow_holds`
+
+- `order_id` (unique)
+
+- `escrow_provider_id`
+
+- `status` (HELD/RELEASE_REQUESTED/RELEASED/PARTIALLY_RELEASED)
+
+- `release_plan_id` (link a split plan)
+
+`split_plans`
+
+- `split_plan_id`
+
+- `order_id`
+
+- `seller_amount`
+
+- `ops_amount`
+
+- `platform_amount`
+
+- `external_costs_amount`
+
+- `computed_from_snapshot_hash`
+
+- `executed_at`
+
+- `idempotency_key` (unique)
+
+### 6.4 Ledger interno (append-only)
+
+`ledger_entries` (WORM lógico)
+
+- `entry_id`
+
+- `ts_utc`
+
+- `order_id`
+
+- `event_type` (PAYMENT_RECEIVED_ESCROW, FUNDS_RELEASED_TO_WALLETS, REFUND_ISSUED, CHARGEBACK_RECEIVED, …)
+
+- `account_type` (BUYER_PAYMENT, ESCROW, SELLER_WALLET, OPS_WALLET, PLATFORM_REVENUE, EXTERNAL_COSTS)
+
+- `amount`, `currency`
+
+- `ref_id` (rapyd txn / dispute id / payout id)
+
+- `evidence_ref` (PoD photo ref / WORM packet id)
+
+- `trace_id`, `request_id`
+
+Índices:
+
+- (`order_id`, `ts_utc`)
+
+- (`event_type`, `ts_utc`)
+
+- (`ref_id`)
+
+### 6.5 Payouts
+
+`payout_requests`
+
+- `payout_id`
+
+- `payee_type` (SELLER|OPS)
+
+- `payee_id`
+
+- `country_code`
+
+- `amount_requested`
+
+- `amount_approved`
+
+- `status` (REQUESTED/APPROVED/SENT/FAILED)
+
+- `rapyd_disburse_id`
+
+- `rolling_reserve_applied`
+
+- `created_at`, `updated_at`
+
+### 6.6 Disputas (acople)
+
+`dispute_cases`, `dispute_outcomes_catalog`, `dispute_events` (append-only) — referencian snapshot y ledger.
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### 7.1 Eventos mínimos
+
+- `PAYMENT_INITIATED`
+
+- `PAYMENT_ESCROWED` (PAID_IN_ESCROW)
+
+- `DELIVERY_POD_VALIDATED`
+
+- `ESCROW_RELEASE_REQUESTED`
+
+- `ESCROW_RELEASED`
+
+- `SPLIT_EXECUTED`
+
+- `LEDGER_ENTRY_POSTED`
+
+- `PAYOUT_REQUESTED/APPROVED/SENT/FAILED`
+
+- `REFUND_REQUESTED/EXECUTED`
+
+- `CHARGEBACK_RECEIVED`
+
+- `DISPUTE_OPENED/OUTCOME_SELECTED/COMPUTED/SAGA_STEP_* /RESOLVED`
+
+### 7.2 Webhooks Rapyd (regla operativa)
+
+- Siempre guardar/operar con `rapyd_transaction_id`.
+
+- Dedupe + firma + reconciliación.
+
+### 7.3 Idempotencia (regla dura)
+
+- `webhook:{provider_event_id}` unique
+
+- `release:{order_id}:{split_plan_hash}` unique
+
+- `refund:{order_id}:{dispute_id}:{attempt}` unique
+
+- `payout:{payee_id}:{date}:{seq}` unique
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Rapyd
+
+- Collect: métodos locales por allowlist.
+
+- Wallets/Escrow: hold y release.
+
+- Disburse: payout.
+
+- Webhooks: fuente de eventos + reconciliación.
+
+### Notificaciones (PIN)
+
+- WhatsApp primary + SMS fallback.
+
+- Link mágico in-app para evitar lockscreen.
+
+### Auditoría WORM
+
+- Snapshot financiero + outcome template + settlement plan + ledger entries + evidencia PoD + PDFs fiscales.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs) — aplicado a Pagos
+
+### Métricas mínimas
+
+- `payments_success_rate{country,method}`
+
+- `payments_webhook_dedup_total{provider}`
+
+- `payments_invalid_signature_total{provider}`
+
+- `escrow_release_lag_seconds{country}`
+
+- `split_execute_fail_total`
+
+- `ledger_post_fail_total`
+
+- `payout_fail_rate{country}`
+
+- `reconciliation_diff_amount{country}`
+
+### Alertas mínimas
+
+- Double-charge risk (webhooks inconsistentes)
+
+- `DELIVERED_VERIFIED && !ESCROW_RELEASED` > X minutos sin HOLD/DLQ visible
+
+- Payout lag alto por país
+
+- Reconciliation diffs > umbral
+
+### SLOs
+
+- `checkout → PAID_IN_ESCROW` p95 < Xs por país
+
+- `DELIVERED_VERIFIED → ESCROW_RELEASED` p95 < Xm
+
+- `ESCROW_RELEASED → SPLIT_EXECUTED+LEDGER_POSTED` p95 < Xs
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+### 10.1 Invariantes de seguridad
+
+- No liberar fondos desde endpoint PoD; siempre worker async.
+
+- PIN hasheado; nunca visible en logs; rate limit.
+
+- Webhooks con firma + dedupe.
+
+- Ledger append-only; evidencia PoD ligada a movimientos.
+
+### 10.2 Retención y compliance
+
+- PDFs fiscales WORM/Object Lock.
+
+- Ledger y snapshots con retención larga (AML/KYC/contable) según política del proyecto.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Órdenes:** estados CREATED → PAID_IN_ESCROW → DELIVERED_PENDING_RELEASE → COMPLETED y estados de excepción DISPUTE/CHARGEBACK/CANCELLED.
+
+- **Seguridad:** Tridente (PIN+GPS+Foto), anti-replay, separación validación vs ejecución.
+
+- **Soporte:** outcomes predefinidos + buckets + earned schedule + saga idempotente (sin montos manuales).
+
+- **Analítica:** eventos server-side (PAYMENT_ESCROWED, ESCROW_RELEASED, REFUND_ISSUED…) alimentan facts/rollups.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Pagos)
+
+1. **Liberar escrow desde PoD** → corregido: PoD valida; worker libera + split + ledger (evita race/doble split).
+
+2. **Fees cambiando el pasado** → corregido: snapshot financiero locked en la orden.
+
+3. **Montos manuales en disputas** → corregido: outcomes + buckets + fórmulas determinísticas + saga idempotente.
+
+4. **Ignorar costos externos** → corregido: `ExternalCosts` como bucket formal + “External Cost Shield”.
+
+5. **Payouts sin riesgo por país** → corregido: cashout_min/max, KYC threshold, rolling reserve policy-driven.

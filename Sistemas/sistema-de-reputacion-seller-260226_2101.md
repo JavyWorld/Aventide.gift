@@ -1,0 +1,511 @@
+### Sistema de Reputación v2.0 (Seller Only) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Reputación (Trust Engine) — Aventide Gift”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema que calcula y expone la **Reputación del Seller** (pública) y el **Seller Score operativo** (interno) usando únicamente “verdad verificada” (órdenes `COMPLETED` con PIN, outcomes de disputas, cancelaciones con culpa atribuida y señales auditables).
+
+**Objetivos:**
+
+1. Reducir riesgo/fraude sin matar conversión (evitar hundir o inflar sellers con pocas reviews).
+
+2. Ser resistente a abuso: anti-represalias (blind reviews), anti-extorsión y anti-review bombing.
+
+3. Ser explicable y operable: historial diario con “drivers” (qué lo sube/baja) y penalizaciones progresivas.
+
+4. Integrarse sin romper invariantes: Órdenes (solo `COMPLETED`), Disputas (outcomes), Moderación (review/media), Búsqueda/Ranking (performance multipliers) y Pagos (rolling reserve/freeze por policy, no por acción manual).
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye (Seller Only)
+
+- **Seller Rating público:** estrellas **Bayesianas** + #reviews + badges + métricas (on-time, cancelación, disputas).
+
+- **Seller Score interno (0–100):** compuesto por subscores con ventanas 30/90/180 y fórmula final ponderada.
+
+- **Reviews seller**: elegibilidad, blind reviews, ventana/edición, formato con tags, moderación de texto/media.
+
+- **Métricas operativas seller**: on-time (con tolerancia), cancelaciones at-fault, disputas perdidas at-fault, reclamos validados, chat response median.
+
+- **Badges/tiers seller** y efectos (boost, acceso a features, ajustes por riesgo).
+
+- **Penalizaciones automáticas progresivas** (warning → downrank → capacity limits → payout hold/rolling reserve → suspensión/ban).
+
+- **Contratos de integración con Búsqueda**: multiplicadores por score y penalizaciones activas.
+
+### Excluye
+
+- Buyer Trust Score (otro submódulo; aquí no se define).
+
+- Motor de Moderación y su cola (se consume como dependencia).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### Actores
+
+- **BUYER:** deja review al seller (solo si elegible).
+
+- **SELLER:** ve su rating/score/badges y explicación (“drivers”).
+
+- **SYSTEM/BOT:** calcula rollups, scores, badges, penalizaciones; publica cambios.
+
+- **CONTENT_MODERATOR / TRUST&SAFETY:** moderan reviews/media y aplican acciones que impactan reputación.
+
+- **COUNTRY_OPS_LEAD / ADMIN:** configura parámetros por país/ciudad y gestiona apelaciones/políticas.
+
+### Permisos mínimos
+
+- `reviews.create` (buyer)
+
+- `reviews.edit.own` (buyer; reglas estrictas)
+
+- `seller.reputation.read.public` (cualquiera)
+
+- `seller.score.read.own` (seller)
+
+- `seller.score_history.read.own` (seller)
+
+- `reputation.policy.read` (ops/admin)
+
+- `reputation.policy.write` (admin; scoped por país/ciudad)
+
+- `reputation.penalties.enforce` (system/admin; auditado)
+
+- `reputation.badges.manage` (system/admin; auditado)
+
+- `reputation.audit.read` (audit/finance/admin)
+
+### Guards
+
+1. AuthGuard
+
+2. EligibilityGuard (review) (ver 4 y 5)
+
+3. ScopeGuard (country/city para config y operaciones internas)
+
+4. ModerationGuard (texto/media pasan por Moderación)
+
+5. AuditGuard (cambios de score/badge/penalty y review status quedan trazables)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Review del buyer al seller (con blind reviews y hold por disputa)
+
+**Happy path**
+
+1. Orden llega a `COMPLETED` (PIN validado).
+
+2. Se abre ventana de review: `review_window_days = 14` (configurable por país).
+
+3. Buyer envía review con:
+
+- `stars` obligatorio (1–5),
+
+- `tags[]` obligatorios,
+
+- `text` opcional (si existe: mínimo 40 chars),
+
+- `media[]` opcional (pasa Moderación).
+
+1. Review entra a estado `BLIND`: no se publica hasta que:
+
+- ambos envíen, o
+
+- venza `blind_timer_days = 7` desde la primera review.
+
+**Edge cases**
+
+- Si hay disputa abierta: review queda `HOLD` hasta cerrar disputa.
+
+- Edición: permitida solo dentro de 24h desde el envío y mientras siga en blind (antes de publicar).
+
+- Si vence blind timer: se publica lo existente; el otro pierde ventana.
+
+### 4.2 Moderación de reviews (anti-extorsión/abuso)
+
+**Happy path**
+
+- Si chat detecta extorsión (“si no me devuelves te pongo 1 estrella…”):
+
+    - `review_flag = EXTORTION_SUSPECTED`,
+
+    - la review entra a `MODERATION_QUEUE`,
+
+    - outcome de moderación:
+
+        - publicar solo estrellas (sin texto), o
+
+        - bloquear/remover si evidencia clara.
+
+**Edge cases**
+
+- Review bombing: ráfagas de 1 estrella (anómalas) → hold + señal a moderación + ajuste de Buyer-side (fuera de este módulo) y protección a score (ver 5.7 “integridad”).
+
+### 4.3 Cálculo de métricas y rollups (por ventanas)
+
+**Happy path**
+
+- Event-driven:
+
+    - `ORDER_COMPLETED` → habilita reviews + actualiza rollups,
+
+    - `ORDER_CANCELED` → actualiza cancel_at_fault,
+
+    - `DISPUTE_CLOSED` → actualiza dispute_loss_at_fault,
+
+    - `MODERATION_ACTION` → actualiza estados de review (removed/hold).
+
+Se materializan rollups por ventanas `30/90/180` días.
+
+### 4.4 Seller Rating público (Bayesiano)
+
+Se recalcula cuando una review se publica o se remueve, usando fórmula bayesiana (ver 5.1).
+
+### 4.5 Seller Score operativo (0–100) + historial + explicabilidad
+
+1. Se calculan subscores normalizados (Quality/OnTime/Cancellation/Dispute/Chat).
+
+2. Se calcula `SellerScore_window` por ventana y el `SellerScore_final` ponderado:
+
+- `0.30*Score_30d + 0.60*Score_90d + 0.10*Score_180d`.
+
+1. Se guarda `seller_score_history` diario:
+
+- score final, subscores, delta, drivers.
+
+### 4.6 Badges y penalizaciones automáticas (escalera)
+
+- Badges se otorgan y revocan por reglas (ver 5.6).
+
+- Penalizaciones: triggers y escalera (ver 5.7).
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Seller Rating Bayesiano (público)
+
+Fórmula oficial:\
+`Rating_bayes = (v/(v+m))*R + (m/(v+m))*C`
+
+- `v`: #reviews del seller
+
+- `R`: rating promedio del seller (1–5)
+
+- `C`: promedio global plataforma (1–5)
+
+- `m`: mínimo para “confiar” (default 20; configurable por país)
+
+**Regla dura:** UI muestra `Rating_bayes` + `#reviews` (nunca `R` sin bayesiano).
+
+### 5.2 Elegibilidad de review (Seller Only)
+
+Solo si:
+
+- Orden `COMPLETED (PIN)`, y
+
+- No hay disputa abierta,
+
+- Si disputa abre dentro del período: review queda en `HOLD` hasta cierre.
+
+### 5.3 Blind Reviews (anti-represalia)
+
+- Publicación condicionada a “ambos o timer 7d”.
+
+- Edición solo 24h y solo antes de publicar.
+
+### 5.4 Formato y validación de review
+
+- `stars` obligatorio.
+
+- `tags[]` obligatorios (estructura fija: CALIDAD, PUNTUALIDAD, COMUNICACIÓN, EMPAQUE, CONFORME_CON_LO_RECIBIDO, etc.).
+
+- `text` opcional; si existe: min 40 chars.
+
+- `media[]` opcional → Moderación obligatoria.
+
+### 5.5 Métricas exactas del Seller (fault attribution)
+
+On-time delivery rate
+
+`on_time = delivered_at <= promised_window_end + grace_minutes`\
+`grace_minutes = 10–15` (configurable por país/ciudad)\
+Penalización por tardanza:
+
+- 0–15 min: leve
+
+- 15–60: media
+
+- 
+
+> 60: fuerte
+
+Cancellation rate (seller-at-fault)
+
+Solo cancelaciones con `cancel_reason` atribuible al seller:\
+`OUT_OF_STOCK, CANNOT_FULFILL, NO_SHOW, SELLER_REQUESTED, ...`
+
+Dispute loss rate (seller-at-fault)
+
+Derivado de outcomes:\
+`SELLER_AT_FAULT, PARTIAL_SELLER_FAULT, FRAUD_SELLER, ...` con peso por severidad.
+
+Complaint rate (post-delivery)
+
+Cuenta si soporte valida reclamo como legítimo (reason codes).
+
+Chat response time
+
+Mediana de tiempo de respuesta en horario operativo declarado; ghosting penaliza más.
+
+### 5.6 Cálculo del Seller Score (0–100)
+
+Subscores normalizados (0–100):
+
+- `QualityScore = clamp((Rating_bayes - 1)/4*100, 0, 100)`
+
+- `OnTimeScore` basado en % on-time y severidad
+
+- `CancellationScore` 100 si 0 cancels_at_fault, baja por escalera
+
+- `DisputeScore` baja por disputes lost y severidad
+
+- `ChatScore` por percentiles de respuesta
+
+Score compuesto por ventana:\
+`SellerScore = 0.40*QualityScore + 0.25*OnTimeScore + 0.20*CancellationScore + 0.10*DisputeScore + 0.05*ChatScore`
+
+Score final multi-ventana:\
+`Final = 0.30*Score_30d + 0.60*Score_90d + 0.10*Score_180d`
+
+### 5.7 Badges del seller (no permanentes)
+
+- `Verified Seller`: KYC aprobado + payout habilitado.
+
+- `On-Time Pro`: on-time ≥ 95% (90d) y ≥ N órdenes (default 30).
+
+- `Low Cancellation`: cancel_at_fault ≤ 2% (90d).
+
+- `Top Seller`: score ≥ 90 (90d) y ≥ 50 órdenes (90d).
+
+- `Rising Star`: seller nuevo con buen score + crecimiento (exploración).
+
+**Regla dura:** badges se revocan si cae el desempeño (no “para siempre”).
+
+### 5.8 Penalizaciones automáticas (progresivas)
+
+Triggers ejemplo:
+
+- `SellerScore < 60 (90d)` o caída brusca semanal
+
+- `cancel_at_fault > 5% (90d)`
+
+- `disputes_lost > umbral` (conteo o monto)
+
+- Señales de fraude/moderación
+
+Escalera:
+
+1. Warning + checklist
+
+2. Downrank (penalización ranking)
+
+3. Capacity limit (limitar órdenes / bloquear fechas pico)
+
+4. Payout hold / rolling reserve (si riesgo financiero sube)
+
+5. Suspensión temporal
+
+6. Ban
+
+**Corrección clave:** reputación **no ejecuta** pagos; solo emite `penalty_event` que Policy Engine/Pagos traduce a flags (reserve/hold).
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 reviews_seller
+
+`reviews_seller(id, order_id, seller_id, buyer_id, stars, tags[], text, media[], status(PENDING|BLIND|PUBLISHED|HOLD|REMOVED), flagged_reason, created_at)`\
+Índices:
+
+- unique(`order_id`,`buyer_id`) (una review buyer→seller por orden)
+
+- (`seller_id`,`status`,`created_at desc`)
+
+### 6.2 seller_metrics_rollup
+
+`seller_metrics_rollup(seller_id, window(30|90|180), on_time_rate, cancel_at_fault_rate, disputes_lost_rate, complaint_rate, chat_median_response, updated_at)`\
+Índices:
+
+- unique(`seller_id`,`window`)
+
+### 6.3 seller_score_history
+
+`seller_score_history(seller_id, date, score_final, subscores_json, delta, top_drivers_json, updated_at)`\
+Índices:
+
+- (`seller_id`,`date desc`)
+
+### 6.4 badge_assignments
+
+`badge_assignments(entity_type=Seller, entity_id=seller_id, badge_code, status(ACTIVE|REVOKED), granted_at, revoked_at)`\
+Índices:
+
+- (`entity_id`,`badge_code`,`status`)
+
+### 6.5 penalty_events
+
+`penalty_events(entity_type=Seller, entity_id, penalty_code, severity, reason_codes[], starts_at, ends_at, created_by(AUTO|ADMIN), audit_ref)`\
+Índices:
+
+- (`entity_id`,`starts_at desc`)
+
+- (`penalty_code`,`starts_at desc`)
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos (seller reputation)
+
+- `ORDER_COMPLETED` → habilita review + actualiza rollups
+
+- `ORDER_CANCELED` → rollups (fault attribution)
+
+- `DISPUTE_CLOSED` → rollups + penalties si aplica
+
+- `MODERATION_ACTION` → cambia status de review/media
+
+- `REVIEW_SUBMITTED/EDITED/PUBLISHED/HELD/REMOVED`
+
+- `SELLER_SCORE_RECALCULATED`
+
+- `BADGE_GRANTED/REVOKED`
+
+- `PENALTY_APPLIED/EXPIRED`
+
+### Idempotencia
+
+- Rollup update idempotente por `(seller_id, window, event_id)`
+
+- Score daily snapshot idempotente por `(seller_id, date)`
+
+- Badge assignment idempotente por `(seller_id, badge_code, window_key)`
+
+- Penalty event idempotente por `(seller_id, penalty_code, window_key)`
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Órdenes
+
+- Solo cuenta `COMPLETED` (PIN).
+
+- Usa `promised_window_end`, `delivered_at` para on-time.
+
+### Disputas (Saga)
+
+- Outcomes con `fault_attribution` alimentan dispute loss/severidad.
+
+### Moderación
+
+- Reviews/media pasan por pipeline; acciones pueden remover texto/media y aplicar flags.
+
+### Chat
+
+- Toma métricas de respuesta y flags de extorsión/abuso.
+
+### Búsqueda/Ranking
+
+Ranking usa:
+
+- `Performance_Seller` (de SellerScore),
+
+- multiplicadores por bandas:
+
+    - 90–100 → x1.15
+
+    - 80–89 → x1.08
+
+    - 70–79 → x1.03
+
+    - 60–69 → x0.97
+
+    - <60 → x0.85
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `reviews_submitted_total`, `reviews_published_total`, `reviews_removed_total`
+
+- `seller_score_avg{country}`, `seller_score_low_count{country}`
+
+- `on_time_rate_avg{country}`, `cancel_at_fault_rate_avg{country}`
+
+- `penalties_applied_total{penalty_code,country}`
+
+- `badge_active_total{badge_code,country}`
+
+- `review_extortion_flag_total{country}`
+
+### Alertas
+
+- Spike de 1★ (review bombing) por seller/categoría
+
+- Aumento de cancel_at_fault por país/ciudad (operación rota)
+
+- Aumento de disputes_lost_rate (fraude o problemas de calidad)
+
+- Cola de moderación de reviews creciendo (si se integra con Moderación)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Solo “verdad verificada” cuenta: review y métricas derivan de eventos auditables (`COMPLETED`, outcomes, cancel_reason).
+
+- Blind reviews para anti-represalia; hold durante disputa abierta.
+
+- Cambios de score/badge/penalty/review status quedan en Auditoría con before/after, actor (AUTO/ADMIN), reason codes y evidencia (order/dispute/chat).
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Órdenes:** reputación solo se activa con `COMPLETED (PIN)`.
+
+- **Disputas:** outcomes alimentan métricas y bloquean publicación de reviews hasta cierre.
+
+- **Moderación:** reviews y media pasan por pipeline; extorsión y spam entran a cola.
+
+- **Búsqueda:** ranking consume SellerScore + penalizaciones activas.
+
+- **Pagos/Riesgo:** penalties disparan flags (rolling reserve/hold/freeze) por policy; reputación no ejecuta dinero.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Reputación Seller)
+
+1. **Rating “promedio simple” inflable** → corregido: rating bayesiano obligatorio con `m` configurable por país.
+
+2. **Reviews con órdenes no verificadas** → corregido: solo `COMPLETED (PIN)` y hold si disputa abierta.
+
+3. **Represalias y extorsión** → corregido: blind reviews + flags por extorsión + moderación (publicar sin texto o bloquear).
+
+4. **Métricas sin culpa atribuida** → corregido: cancel/dispute solo cuentan si `seller-at-fault` por reasons/outcomes.
+
+5. **Reputación moviendo dinero** → corregido: solo emite `penalty_events`; pagos/policy aplican holds/reserve/freeze.

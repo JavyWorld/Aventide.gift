@@ -1,0 +1,469 @@
+### Sistema de Archivos v2.0 (Storage & Attachments) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Archivos (Storage & Attachments)”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema central de almacenamiento para **media pública**, **adjuntos privados**, **evidencia operativa**, y **documentos legales/fiscales**, con:
+
+- control estricto RBAC+ABAC (“need-to-know”),
+
+- entrega por **Signed URLs** para contenido privado,
+
+- **retención diferenciada** por clase de dato,
+
+- **WORM/Object Lock** para documentos legales inmutables,
+
+- cifrado con **envelope encryption** y soporte de **crypto-shredding** para borrado efectivo cuando aplique.
+
+**Objetivos (duros):**
+
+1. Unificar evidencia/documentos sin dispersión por servicios.
+
+2. Impedir filtración de PoD y adjuntos privados (solo URLs firmadas con TTL corto + no-cache).
+
+3. Permitir auditoría completa: cada acceso sensible genera `file_access_log` append-only.
+
+4. Cumplir compliance: no borrar fiscal/ledger antes del mínimo; permitir pseudonimización/crypto-shredding donde corresponda.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Clasificación obligatoria por **Data Classes**: `PUBLIC_MEDIA`, `PRIVATE_ATTACHMENTS`, `LEGAL_WORM_DOCS`, `PII_VAULT`, `TECH_LOGS`.
+
+- Esquema multi-país/multi-tenant: prefijos por `country_code` + scope.
+
+- Cifrado fuerte: DEK por entidad + KEK en KMS; crypto-shredding para ciertos tipos.
+
+- Signed URLs con TTL corto para privados y PoD; registro de emisión.
+
+- Versionado/snapshotting de fotos de listings (“lo que el buyer vio”) y documentos fiscales congelados.
+
+- WORM/Object Lock para facturas/recibos/notas/PoD emitidos.
+
+- Retención/expiración/borrado con políticas explícitas.
+
+### Excluye
+
+- Moderación de contenido (solo almacena evidencia; Moderación decide).
+
+- Emisión de facturas/recibos (lo genera Facturación; aquí se almacena y sirve).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER:** acceso solo a sus docs/órdenes.
+
+- **SELLER:** acceso a sus listings/órdenes y docs donde sea issuer.
+
+- **SUPPORT:** acceso temporal y auditado por ticket/orden.
+
+- **MODERATOR:** solo evidencia reportada, no finanzas.
+
+- **COUNTRY_OPS_LEAD:** acceso scoping país/hub con límites.
+
+- **LEGAL/FINANCE:** acceso a legales/fiscales por necesidad.
+
+- **SUPER_ADMIN:** acceso total pero **todo auditado**.
+
+- **SYSTEM/BOT:** ingestión, sellado WORM, expiración, shredding, emisión de signed URLs.
+
+### 3.2 Permisos mínimos (namespaces)
+
+- `files.upload.init`
+
+- `files.upload.complete`
+
+- `files.metadata.read`
+
+- `files.signed_url.issue`
+
+- `files.legal_hold.set/release`
+
+- `privacy.delete_request.submit`
+
+- `files.audit.read` (audit/finance)
+
+- `files.break_glass` (excepcional, ver 3.4)
+
+### 3.3 Guards (orden canónico)
+
+1. AuthGuard
+
+2. PermissionGuard
+
+3. ABAC Guard (“need-to-know”): `country_code`, `scope_type`, `scope_id`, relación del actor (order_id/seller_id/ticket_id).
+
+4. SensitivityGuard: `data_class` determina si se permite URL firmada y TTL.
+
+5. AuditGuard: log obligatorio en toda lectura/descarga/URL issuance.
+
+### 3.4 Break-glass access (excepcional)
+
+Workflow de emergencia:
+
+- razón obligatoria,
+
+- alerta,
+
+- registro de auditoría.
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Upload (init → upload → complete)
+
+**Happy path**
+
+1. `POST /files/init-upload` con:
+
+    - `data_class`, `scope_type`, `scope_id`, `mime`, `size`, `checksum`.
+
+2. Respuesta: `upload_url` (pre-signed PUT/multipart) + `file_id`.
+
+3. Cliente sube binario al storage.
+
+4. `POST /files/complete-upload`:
+
+    - valida checksum,
+
+    - fija metadata/tags,
+
+    - asigna `retention_policy_id`,
+
+    - marca `expires_at` si aplica,
+
+    - si `LEGAL_WORM_DOCS` ⇒ aplica WORM/Object Lock.
+
+**Edge cases**
+
+- checksum mismatch: rechaza y mantiene estado `PENDING_UPLOAD` con TTL de limpieza.
+
+- contenido sensible subido con `PUBLIC_MEDIA`: se rechaza por PolicyGuard de data_class según scope (Inferencia: consistente con “clasificar desde creación” y prevenir leakage accidental).
+
+### 4.2 View/Download (Signed URL)
+
+**Happy path**
+
+1. Actor pide `GET /files/:id/signed-url?purpose=view|download`
+
+2. Sistema valida RBAC+ABAC + data_class.
+
+3. Emite URL firmada con TTL y headers:
+
+    - `Cache-Control: private, no-store`
+
+    - `Content-Disposition: attachment` si es legal PDF (si se requiere).
+
+4. Registra `file_access_log(action=ISSUE_SIGNED_URL)`.
+
+**Edge cases**
+
+- `PRIVATE_ATTACHMENTS` y PoD: TTL recomendado 60s–10min, siempre firmado, nunca CDN público.
+
+- Reintentos: emisión de URL se loguea cada vez; no afecta el objeto.
+
+### 4.3 Snapshotting de listings (“lo que el buyer vio”)
+
+**Happy path**
+
+- Cada foto de listing se versiona:
+
+    - `listing_photo_v1`, `listing_photo_v2`, …
+
+- La orden guarda referencia a versión usada al comprar:
+
+    - evita que el seller cambie la foto luego y rompa evidencia.
+
+**Edge cases**
+
+- Moderación remueve foto v2 por policy: la orden conserva v1 como evidencia (siempre privada/firmada si corresponde).
+
+### 4.4 Documentos fiscales/recibos (WORM)
+
+**Happy path**
+
+- Al emitir factura/recibo/nota:
+
+    - se guarda PDF + JSON snapshot (o hash+ref),
+
+    - se activa Object Lock/WORM,
+
+    - si hay error: no se edita; se emite Nota de Crédito + nueva factura.
+
+### 4.5 PoD “Caja Negra” por intento
+
+**Happy path**
+
+- Cada intento PoD crea un `POD_PACKET` (JSON inmutable) con:
+
+    - referencia a foto PoD (privada + firmada),
+
+    - metadatos PIN/GPS/device/timestamp.
+
+- En disputa: export de chat a PDF inmutable y anexado.
+
+**Edge cases**
+
+- Acceso PoD: solo soporte/legal (y el seller/buyer según policy del proyecto; el doc enfatiza soporte/legal).
+
+---
+
+## 5) Reglas y políticas (retención, expiración, caps, validaciones)
+
+### 5.1 Data Classes (regla dura)
+
+- `PUBLIC_MEDIA`: CDN permitido, versionado.
+
+- `PRIVATE_ATTACHMENTS`: siempre signed URL + ABAC.
+
+- `LEGAL_WORM_DOCS`: WORM/Object Lock; no editar/no borrar antes de retención.
+
+- `PII_VAULT`: cifrado fuerte + retención moderada + acceso restrictivo.
+
+- `TECH_LOGS`: retención corta.
+
+### 5.2 Tags/metadata obligatorios (para forense y compliance)
+
+- `country_code, data_class, scope_type, scope_id`
+
+- `retention_policy_id, is_worm, legal_hold`
+
+- `content_hash (SHA-256)` para dedupe/forense
+
+### 5.3 Cifrado: envelope encryption + crypto-shredding
+
+- DEK por entidad protegida por KEK en KMS.
+
+- Crypto-shredding permitido solo donde la ley lo permite; **no** para KYC/AML ni fiscal/ledger antes del mínimo legal.
+
+### 5.4 Signed URLs — reglas duras
+
+- `PRIVATE_ATTACHMENTS/PoD/chat export/evidencia` ⇒ siempre firmado.
+
+- TTL recomendado 60s–10min según severidad.
+
+- Anti-cache: `private, no-store`.
+
+- Registrar emisión `signed_url_issued` con actor + motivo.
+
+### 5.5 Retención (números definidos)
+
+- Financieros/legales: **7 años**
+
+- Operativos (precio/stock): **1 año**
+
+- Logs de acceso: **90 días**
+
+- Logs técnicos: **30–180 días**
+
+- PoD fotos: retención moderada suficiente para disputas y luego shred.
+
+### 5.6 Solicitud de borrado (usuario)
+
+- Pseudonimización donde sea posible.
+
+- Lo requerido por ley se conserva en vault restringido y auditado.
+
+---
+
+## 6) Modelo de datos (mínimo, limpio)
+
+### 6.1 files
+
+Campos oficiales:
+
+- `id (UUID)`
+
+- `country_code`
+
+- `data_class` (enum)
+
+- `scope_type` (ORDER/PRODUCT/USER_PROFILE/CHAT/TICKET/INVOICE/POD_PACKET/MODERATION_CASE)
+
+- `scope_id`
+
+- `owner_type`, `owner_id`
+
+- `mime_type`, `size_bytes`
+
+- `content_hash (SHA-256)`
+
+- `storage_uri`
+
+- `is_worm` (bool)
+
+- `version` (int), `replaces_file_id` (nullable)
+
+- `retention_policy_id`
+
+- `expires_at` (nullable)
+
+- `legal_hold` (bool)
+
+- `encryption_key_ref` (KMS ref)
+
+- `created_at`
+
+Índices mínimos:
+
+- unique(`content_hash`, `scope_type`, `scope_id`) (dedupe contextual)
+
+- (`country_code`, `data_class`, `scope_type`, `scope_id`)
+
+- (`owner_type`, `owner_id`, `created_at desc`)
+
+### 6.2 file_access_log (append-only)
+
+Campos oficiales:
+
+- `id`, `file_id`
+
+- `actor_id`, `actor_role`
+
+- `action` (VIEW/DOWNLOAD/ISSUE_SIGNED_URL/UPLOAD/DELETE_REQUEST/LEGAL_HOLD)
+
+- `reason_code`
+
+- `ip`, `user_agent`
+
+- `created_at`
+
+---
+
+## 7) Eventos y triggers + idempotencia
+
+### Eventos mínimos
+
+- `FILE_UPLOAD_INITIATED`
+
+- `FILE_UPLOAD_COMPLETED`
+
+- `FILE_WORM_SEALED`
+
+- `SIGNED_URL_ISSUED`
+
+- `FILE_VIEWED/DOWNLOADED`
+
+- `LEGAL_HOLD_SET/RELEASED`
+
+- `FILE_EXPIRED`
+
+- `PRIVACY_DELETE_REQUESTED/EXECUTED`
+
+### Idempotencia
+
+- `complete-upload`: idempotente por `(file_id, checksum)`
+
+- `worm_seal`: idempotente por `(file_id)`
+
+- `expire_job`: idempotente por `(file_id, expires_at)`
+
+- `delete_request`: idempotente por `(request_id, subject_id)`
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Mensajería (Chat)
+
+- Adjuntos chat → `PRIVATE_ATTACHMENTS`.
+
+- Notificaciones externas no llevan binarios; app consume signed URLs.
+
+### Soporte/Disputas
+
+- PoD packet + export chat PDF inmutable anexado al caso.
+
+### Facturación & Documentos
+
+- PDFs fiscales/recibos se guardan WORM y se enlazan desde Document Center.
+
+### Auditoría
+
+- `file_access_log` se conecta con auditoría append-only y es exportable.
+
+### Moderación
+
+- Evidencia reportada se guarda como `PRIVATE_ATTACHMENTS` con `scope_type=MODERATION_CASE`.
+
+- Moderador ve solo lo reportado; no finanzas.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `files_uploaded_total{data_class,country}`
+
+- `signed_urls_issued_total{data_class,purpose,country}`
+
+- `file_access_denied_total{reason,country}`
+
+- `worm_docs_sealed_total{country}`
+
+- `retention_expired_total{data_class,country}`
+
+- `crypto_shred_total{data_class,country}`
+
+- `break_glass_total{country}`
+
+### Alertas
+
+- Spike de `signed_urls_issued_total` para PoD (posible exfiltración interna)
+
+- `file_access_denied_total` alto (misconfig ABAC/policy)
+
+- Falla en sellado WORM (alto riesgo compliance)
+
+- Expiraciones no ejecutadas (crecimiento de costos / compliance)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- “Need-to-know” obligatorio: RBAC + ABAC por país y scope, con razón en sensibles.
+
+- Signed URLs TTL corto + no-store; PoD solo por roles autorizados.
+
+- WORM/Object Lock para documentos legales: nadie edita; corrección por Nota de Crédito.
+
+- `file_access_log` append-only para auditoría, incluyendo emisión de URL firmada.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Facturación & Documentos:** PDFs+JSON sellados y almacenados WORM.
+
+- **Pagos/Disputas:** PoD packet + evidencia y exports; legal hold en casos de chargeback.
+
+- **Contenido/Catálogo:** fotos públicas versionadas y snapshot referenciado por orden.
+
+- **Moderación:** evidencia reportada privada y scoping por caso.
+
+- **Auditoría:** accesos sensibles registrados y exportables.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Archivos)
+
+1. **PoD tratado como media pública** → corregido: `PRIVATE_ATTACHMENTS` + signed URL TTL corto + no-store + RBAC/ABAC.
+
+2. **Facturas editables** → corregido: `LEGAL_WORM_DOCS` con Object Lock; corrección solo por Nota de Crédito + reemisión.
+
+3. **Sin evidencia de “lo que el buyer vio”** → corregido: versionado de fotos y snapshot por orden.
+
+4. **Borrado que rompe AML/ledger** → corregido: crypto-shredding solo donde aplica; fiscal/ledger 7 años + legal_hold.
+
+5. **Accesos no auditados** → corregido: `file_access_log` append-only (incluye emisión de signed URL) + break-glass con razón y alerta.

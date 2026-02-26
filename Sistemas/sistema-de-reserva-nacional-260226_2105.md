@@ -1,0 +1,433 @@
+### Sistema de Reserva Nacional v2.0 (COUNTRY_RESERVE + GOVERNANCE + WATERFALL)
+
+**Fuentes de verdad:**
+
+- “resumen-260207_1014” (Continuidad, vacancia, routing a reserva, break-glass, four-eyes, monitoreo).
+
+- “waterfall-engine-v10-260207_0941” (Waterfall de pérdidas, layers, loss_case, recovery al COL, guardrails, ledger doble-entry).
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** La **Reserva Nacional** (por país) es una **cuenta de ledger** (`COUNTRY_RESERVE_{country}`) de **custodia corporativa** que:
+
+1. **Recibe** automáticamente el diferencial / bucket destinado a operación país cuando aplica (p.ej., vacancia de COL o decisiones de riesgo/policy).
+
+2. **Cubre pérdidas** de forma determinística como **primera capa** del Waterfall (antes de cargar al COL o a la Reserva Global).
+
+3. Se **gobierna** con workflow formal (request/approve/execute), auditoría WORM y controles break-glass para cualquier movimiento sensible.
+
+**Objetivos (duros):**
+
+- **Continuidad**: si no hay COL activo, el país sigue operando sin agujeros financieros; el bucket ops no “desaparece”, se enruta a reserva.
+
+- **Riesgo**: absorber pérdidas locales (chargebacks, fraude, refunds irreversibles, penalidades atribuibles a operación país si policy lo admite) con orden fijo y trazabilidad.
+
+- **Anti-abuso / anti-backpay**: la Reserva Nacional **no pertenece** al nuevo COL; no hay liberación automática al asignar un COL entrante.
+
+- **Determinismo contable**: todo movimiento es doble-entry ledger, idempotente y reproducible; cada pérdida tiene expediente único (`loss_case_id`).
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Cuentas `COUNTRY_RESERVE_{country}` en ledger y su **routing** como beneficiario cuando el país está `VACANT/LOCKDOWN` o cuando policy lo determine.
+
+- Workflow de **disbursement** desde reserve con **four-eyes** y ejecución idempotente por worker.
+
+- Integración con **Waterfall Engine** para cubrir pérdidas (Layer 1).
+
+- Export/reporting de exposición país: balance de reserva, pérdidas cubiertas, recovery activo, aging de casos.
+
+- Observabilidad + alertas por salud de reserva y anomalías de uso (abuso interno, disbursements atípicos).
+
+### Excluye
+
+- Cálculo de rates (eso es Rate Engine unificado). La reserva consume el resultado (routing y/o % reserve) pero no decide pricing.
+
+- Gestión completa de disputas/chargebacks (eso es Disputas); este sistema solo recibe el “net_loss_amount” confirmado vía Loss Intake.
+
+- Copias de seguridad/DR (eso es Copia de seguridad).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### Actores
+
+- **FINANCE_ADMIN (global)**: crea solicitudes y aprueba disbursements, ve dashboards de exposición.
+
+- **SUPER_ADMIN (global)**: puede activar estados especiales (LOCKDOWN), aplicar break-glass para acciones críticas y forzar medidas de contención con evidencia.
+
+- **SYSTEM/WORKERS**: ejecutan movimientos de ledger, aplican waterfall, corren recovery cycles.
+
+- **AUDIT/LEGAL**: lectura y export de evidencia (WORM).
+
+- **COUNTRY_OPS_LEAD (COL)**: **no** puede mover dinero desde `COUNTRY_RESERVE`; puede ver métricas agregadas según policy, pero sin control de disbursement.
+
+### Permisos mínimos
+
+- `reserve.balance.read{country}` (finance/audit; COL opcional y limitado)
+
+- `reserve.disbursement.request.create{country}` (finance_admin)
+
+- `reserve.disbursement.request.approve{country}` (finance_admin distinto; four-eyes)
+
+- `reserve.disbursement.execute` (system/worker)
+
+- `reserve.loss_case.read` (finance/audit)
+
+- `reserve.loss_case.apply_waterfall` (system/finance; típico system)
+
+- `reserve.break_glass` (super_admin; 2FA + reason + TTL)
+
+- `reserve.export.sensitive` (audit/legal; VIEW_SENSITIVE auditado)
+
+### Guards (obligatorios)
+
+- **ScopeGuard**: todo es por `country_code`.
+
+- **FourEyesGuard**: request/approve separados para disbursements y acciones sensibles de gobernanza.
+
+- **BreakGlassGuard**: acciones críticas (override de pérdidas, emergency escalation, freezes) con 2FA+motivo+TTL.
+
+- **LedgerWORMGuard**: doble-entry, append-only, nada “por fuera” del ledger.
+
+- **IdempotencyGuard**: mismo evento/pérdida no se aplica dos veces.
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Inflow a Reserva Nacional (routing por gobernanza)
+
+**Happy path (vacancia)**
+
+1. País entra a `VACANT`.
+
+2. Nuevas órdenes snapshottean `ops_fee_beneficiary_type = COUNTRY_RESERVE`.
+
+3. Ledger postea el monto correspondiente al bucket ops a `COUNTRY_RESERVE_{country}` (append-only).
+
+**Edge cases**
+
+- Cambio de estado en medio de un checkout: se respeta el snapshot de la orden (no retroactividad).
+
+### 4.2 Disbursement desde Reserva Nacional (operación legítima)
+
+**Happy path (workflow RESERVE_DISBURSEMENT)**
+
+1. FINANCE_ADMIN crea `reserve_disbursement_request` con:
+
+    - `country_code`, `amount`, `purpose_code`, `evidence_refs[]`.
+
+2. Otro FINANCE_ADMIN aprueba (four-eyes).
+
+3. Worker ejecuta idempotente:
+
+    - postea movimiento en ledger (de reserva a cuenta destino),
+
+    - si aplica: ejecuta payout vía proveedor (por Integraciones/Pagos).
+
+4. Auditoría WORM: request/approve/execute con hashes/evidencia.
+
+**Edge cases**
+
+- Intento de disbursement por COL: denegado por RBAC/PolicyGuard.
+
+- Reintentos del worker: idempotencia por `idempotency_key`.
+
+### 4.3 Cobertura de pérdidas (Waterfall: Layer 1 = Country Reserve)
+
+**Happy path (pérdida confirmada)**
+
+1. Loss Intake crea `loss_case` (OPEN) con `net_loss_amount`, evidencia mínima y refs (order/payment/dispute).
+
+2. Waterfall Orchestrator aplica orden fijo:
+
+    - (1) `COUNTRY_RESERVE_{country}` → `LOSS_EXPENSE_{country}`
+
+    - (2) `COL_LIABILITY_{country}` → `LOSS_EXPENSE_{country}`
+
+    - (3) `GLOBAL_RESERVE` → `LOSS_EXPENSE_{country}`
+
+3. Si Global cubre parte: se crea `recovery_account` y se activa Recovery Engine (recuperación obligatoria al COL vía recorte de earnings, con guardrails).
+
+**Edge cases**
+
+- Country Reserve insuficiente: cae a COL Liability y luego Global (sin saltos).
+
+- Global insuficiente: `EMERGENCY_ESCALATION` + protocolo de crisis (freeze parcial, restricciones).
+
+### 4.4 Relación con Continuidad (VACANT/LOCKDOWN)
+
+- En `VACANT`, la reserva funciona como **custodia** y destino del bucket ops; no se habilita backpay al entrar COL nuevo.
+
+- En `LOCKDOWN`, se restringen aún más los disbursements y puede activarse “freeze” operacional + holds (según políticas).
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Regla dura: anti-backpay
+
+- Al asignar nuevo COL, **solo** recibe OpsFee desde `effective_from`; la reserva acumulada no se transfiere automáticamente.
+
+### 5.2 Usos permitidos de Country Reserve (solo workflow global)
+
+- Gastos operativos del país (tooling, soporte, operación).
+
+- Cobertura de riesgo (chargebacks/fraude/refunds irreversibles) a través de Waterfall.
+
+- Presupuesto operativo aprobado por Global Management.
+
+- Consolidación contable a platform revenue si se define (requiere política explícita y auditoría).
+
+### 5.3 Prohibiciones explícitas
+
+- COL no puede ejecutar disbursements desde reserve.
+
+- No se permiten “ajustes por fuera del ledger” (doble-entry obligatorio).
+
+- No se permite alterar el orden del Waterfall manualmente.
+
+### 5.4 Guardrails de recovery (protección del país y anti-colapso)
+
+El Recovery Engine:
+
+- recorta earnings del COL para recuperar lo cubierto por Global,
+
+- pero respeta floor de earnings, cap de recorte diario y horizonte máximo de recuperación.
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 Ledger accounts (mínimo requerido)
+
+- `COUNTRY_RESERVE_{country}`
+
+- `COL_LIABILITY_{country}`
+
+- `GLOBAL_RESERVE`
+
+- `GLOBAL_RECOVERY_RECEIVABLE_{country}`
+
+- `LOSS_EXPENSE_{country}`
+
+- `COL_EARNINGS_PAYABLE_{country}`
+
+### 6.2 reserve_disbursement_request
+
+Campos mínimos (alineado a Continuidad)
+
+- `id`
+
+- `country_code`
+
+- `amount`, `currency`
+
+- `purpose_code`
+
+- `evidence_refs[]`
+
+- `status: REQUESTED|APPROVED|EXECUTED|REJECTED`
+
+- `requested_by`, `approved_by`
+
+- `executed_at`
+
+- `idempotency_key`
+
+Índices:
+
+- (`country_code`,`status`,`created_at desc`)
+
+- unique(`idempotency_key`)
+
+### 6.3 loss_cases
+
+Estructura núcleo del Waterfall
+
+- `loss_case_id`
+
+- `country_code`
+
+- `col_id`
+
+- `loss_type`
+
+- `gross_amount`
+
+- `recoveries_external`
+
+- `net_loss_amount`
+
+- `currency`
+
+- `source_ref`
+
+- `evidence_hash`
+
+- `status`
+
+- `created_at`, `closed_at`
+
+Índices:
+
+- (`country_code`,`status`,`created_at desc`)
+
+- (`col_id`,`status`)
+
+### 6.4 waterfall_applications
+
+- `id`
+
+- `loss_case_id`
+
+- `layer (COUNTRY_RESERVE|COL_LIABILITY|GLOBAL_RESERVE)`
+
+- `applied_amount`, `currency`
+
+- `ledger_txn_id`
+
+- `applied_at`
+
+Índices:
+
+- (`loss_case_id`,`applied_at asc`)
+
+### 6.5 recovery_accounts + col_rate_modes
+
+- `recovery_accounts`: principal/outstanding/status
+
+- `col_rate_modes`: NORMAL|RECOVERY|SAFE_RECOVERY + floors + max_daily_delta_bps
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos (Reserva Nacional + Waterfall)
+
+- `COUNTRY_RESERVE_CREDITED` (inflow)
+
+- `RESERVE_DISBURSEMENT_REQUESTED/APPROVED/EXECUTED/REJECTED`
+
+- `LOSS_CASE_CREATED`
+
+- `WATERFALL_APPLIED` (por capa)
+
+- `RECOVERY_ACCOUNT_OPENED/UPDATED/CLOSED`
+
+- `EMERGENCY_ESCALATION_TRIGGERED`
+
+### Idempotencia (reglas duras)
+
+- `loss_case` idempotente por `source_ref + loss_type + final_amount_hash` (para evitar doble intake).
+
+- `apply_waterfall` idempotente por `loss_case_id` (solo OPEN → APPLIED/RECOVERY_ACTIVE).
+
+- `reserve_disbursement` idempotente por `idempotency_key`.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Continuidad (Country Governance)
+
+- Input: `country_governance_state` (ACTIVE/VACANT/LOCKDOWN).
+
+- Output: routing del beneficiario ops a reserve cuando aplica.
+
+### Waterfall Engine
+
+- Consume balance de `COUNTRY_RESERVE_{country}` como Layer 1.
+
+- Produce aplicaciones ledger y recovery accounts cuando Global cubre.
+
+### Pagos/Integraciones
+
+- Disbursements que impliquen payout pasan por workers y proveedores; auditoría y reintentos estándar (DLQ, circuit breaker), sin duplicar efectos (idempotencia). (Coherente con el enfoque de workers y auditoría del proyecto; los detalles operativos viven en Integraciones, aquí solo se exige el contrato de idempotencia + evidencia.)
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `country_reserve_balance{country}`
+
+- `country_reserve_inflow_total{country,source}`
+
+- `reserve_disbursement_total{country,purpose,status}`
+
+- `loss_cases_open_total{country,loss_type}`
+
+- `%loss_covered_by_layer{country,layer}`
+
+- `recovery_outstanding_total{country,col}`
+
+- `recovery_age_days_p95{country}`
+
+- `emergency_escalation_total{country}`
+
+### Alertas mínimas
+
+- Reserva por debajo de umbral operativo (coverage_days bajo).
+
+- Spike de disbursements o disbursements fuera de horario (posible abuso).
+
+- Crecimiento anormal de pérdidas (loss_rate) o incremento de Global exposure.
+
+- `EMERGENCY_ESCALATION` disparado (P0).
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Toda acción de reserva (request/approve/execute) queda en auditoría WORM con evidencia y actor.
+
+- Acceso a export/reporting sensible requiere `VIEW_SENSITIVE` auditado.
+
+- Waterfall exige expediente único por pérdida (`loss_case_id`) con evidencia hash y trazabilidad completa.
+
+- Overrides (cambiar estado, emergency actions) requieren break-glass (2FA+motivo+TTL).
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Continuidad / Gobernanza país:** decide cuándo el bucket ops se enruta a reserve (VACANT/LOCKDOWN) y define quién puede actuar.
+
+- **Ledger / Money plane:** reserva es cuenta ledger; todo es doble-entry append-only.
+
+- **Waterfall Engine:** reserva es Layer 1; define orden fijo y recovery obligatorio al COL cuando Global cubre.
+
+- **Rate Guardrails / Rates unificados:** recovery puede ajustar `ops_lead_earn_pct` dentro de guardrails (floor, max delta) sin romper snapshot por orden.
+
+---
+
+### Conflictos/incoherencias corregidas (Reserva Nacional)
+
+1. **“Reserva = dinero del COL”** → corregido: custodia corporativa por país; no es backpay y no se transfiere al nuevo COL.
+
+2. **“Si no hay COL, no se cobra ops fee”** → corregido: se sigue cobrando y se enruta a `COUNTRY_RESERVE`.
+
+3. **Pérdidas cubiertas manualmente y sin trazabilidad** → corregido: `loss_case_id` + doble-entry ledger + orden fijo Waterfall + idempotencia.
+
+4. **Global absorbe pérdidas sin recuperación** → corregido: si Global cubre, se abre recovery receivable y se activa recuperación obligatoria contra earnings del COL con guardrails.
+
+5. **Movimientos desde reserva sin controles** → corregido: workflow request/approve/execute (four-eyes) + auditoría WORM + break-glass para crítico.
+
+---
+
+### No está definido explícitamente en la documentación
+
+- Valores numéricos de “coverage_days mínimo”, umbrales de alertas y catálogo definitivo de `purpose_code` de disbursements.
+
+- Regla exacta de qué eventos alimentan _inflow_ a reserve además del routing por vacancia (p.ej., diferencial cap-earn si Rate Engine lo define).
+
+Si quieres, lo siguiente es convertir este sistema a **contratos “copy-paste para ingeniería”**: endpoints admin exactos, enums `purpose_code`, eventos definitivos, y un set mínimo de tests UAT (vacancia, disbursement, pérdida y recovery).

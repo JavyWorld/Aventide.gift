@@ -1,0 +1,475 @@
+### Sistema de Crédito Interno v2.0 (Internal Credits / Wallets) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Referido y Crédito Interno” (sección 10.X F).
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** “Créditos internos” son saldos **no-cash** gestionados por la plataforma y representados como **pasivos** (“Customer_Credit_Liability”), con **ledger auditable** y reglas estrictas de aplicabilidad. Se dividen por tipo porque no todos se usan igual.
+
+**Objetivos:**
+
+1. Eliminar incoherencia “crédito genérico”: **wallets separadas por tipo** con reglas duras.
+
+2. Integración determinística con la Torre de Precios: orden de cálculo fijo y no negociable.
+
+3. Evitar bugs financieros: no mezclar FS/BSC/GCC; no permitir aplicar créditos a taxes/processing/ops_fee; FS solo contra platform_fee.
+
+4. Auditabilidad total: balances **nunca** se “editan”; solo ledger entries (mint/spend/revoke/expire).
+
+5. Reversibilidad completa ante disputas/refunds/chargebacks y reglas de retención/expiración por país.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Tipos oficiales: **FS**, **BSC**, **GCC** (opcional), y su matriz de aplicabilidad.
+
+- Ledger por wallet + balances materializados derivados del ledger (proyección).
+
+- Integración con checkout vía inputs explícitos:
+
+    - `fee_credits_requested (FS)`
+
+    - `store_credit_requested (BSC)` (si policy lo permite como tender)
+
+    - (opcional) `gcc_credit_requested` si GCC está habilitado.
+
+- Expiración, gating anti-abuso (principalmente FS), y bloqueo cross-country por defecto.
+
+- Compatibilidad con Soporte/Disputas: outcomes pueden “mint” BSC o waivers/credits conforme buckets.
+
+### Excluye
+
+- Pagos reales (cash) y refunds cash: pertenece a Pagos/Disputas, aunque el resultado puede ser “BuyerCreditNonCash (BSC)”.
+
+- Cupones seller-funded (otro sistema); solo se respeta la torre de precios.
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER:** consulta saldos, solicita aplicar FS/BSC/GCC en checkout, ve historial y expiraciones.
+
+- **SUPPORT L2/L3:** no “edita” montos; selecciona outcomes que pueden generar BSC o waivers, y el sistema ejecuta.
+
+- **ADMIN/FINANCE:** auditoría, configuraciones por país, ajustes administrativos (si se permite).
+
+- **SYSTEM/BOT:** mint/spend/expire/revoke, proyección de balances, anti-abuso y reconciliación.
+
+### 3.2 Permisos mínimos
+
+- `wallet.read.own`
+
+- `wallet.apply.fs` (checkout)
+
+- `wallet.apply.bsc` (checkout, si policy lo permite)
+
+- `wallet.apply.gcc` (si habilitado)
+
+- `wallet.ledger.read.own`
+
+- `wallet.admin.adjust` (solo si el proyecto permite ajustes admin; siempre auditado)
+
+- `wallet.audit.read` (finance/audit)
+
+- `support.outcome.select` (soporte; dispara efectos)
+
+- `wallet.system.mint/spend/revoke/expire` (system)
+
+### 3.3 Guards (backend manda)
+
+1. AuthGuard
+
+2. OwnershipGuard (buyer_id)
+
+3. PolicyGuard (country_id + policy_version)
+
+4. MoneyGuard (matriz de aplicabilidad dura + orden de cálculo)
+
+5. RiskGuard (gating FS)
+
+6. IdempotencyGuard (checkout_id/order_id/dispute_id)
+
+7. AuditGuard (ledger + snapshots)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Mint (creación) de créditos
+
+4.1.1 FS (Fee Shields / Fee Credits)
+
+**Orígenes permitidos:** conversión AP→FS, Aventide+, referidos (opcional), promos plataforma, ajustes admin.\
+**Regla dura:** FS se acredita en wallet FS como “pasivo”, con expiración y caps.
+
+4.1.2 BSC (Buyer Store Credit / Support Credit)
+
+**Origen permitido:** solo por Soporte/Disputas (outcomes predefinidos).\
+**Uso:** compensación no-cash para items (y delivery si policy), pero nunca taxes/ops/processing.
+
+4.1.3 GCC (Gift Card Credit) — opcional
+
+**Origen:** compra de gift card.\
+**Uso:** depende de policy del país.
+
+**Edge cases (comunes a mint)**
+
+- Cross-country: crédito se minta en moneda local del país (`country_id`, `currency`) y **no es usable en otro país** por defecto.
+
+### 4.2 Spend (consumo) en checkout (núcleo)
+
+**Happy path**
+
+1. Checkout recibe:
+
+    - `coupon_id` (si aplica, seller-funded)
+
+    - `store_credit_requested` (BSC/GCC si policy lo permite)
+
+    - `fee_credits_requested` (FS)
+
+2. Motor financiero aplica **Torre de Precios oficial** (ver 5.4).
+
+3. Se calcula el máximo aplicable por cada wallet según matriz y el monto pedido:
+
+    - `bsc_applied = min(bsc_balance, eligible_base_for_bsc, store_credit_requested)`
+
+    - `fs_applied = min(fs_balance, platform_fee_amount, fee_credits_requested)`
+
+4. Se crean ledger entries de SPEND (idempotente por `checkout_id`) y se produce `promo_snapshot` en la orden.
+
+**Edge cases**
+
+- Reintentos/redoble click: no duplica spend (idempotencia por `checkout_id`).
+
+- Wallet expirada parcial: solo se aplica lo no expirado (batches).
+
+- Buyer pide aplicar BSC a taxes: se recorta a 0 para taxes por MoneyGuard y se devuelve breakdown claro.
+
+### 4.3 Expiración
+
+Un job expira lotes por `expires_at`:
+
+- FS: fin de mes o 90 días (policy país)
+
+- BSC: 90–180 días o no expira (policy país)
+
+- GCC: por términos legales del país
+
+Se registra ledger `EXPIRE` (no edita balance directo).
+
+### 4.4 Reversión por refund/chargeback/disputa
+
+**Happy path**
+
+- Si una orden se cancela o hay refund/chargeback:
+
+    - se generan ledger `REVOKE` o “compensación” según el tipo y policy.
+
+    - se ajusta `promo_snapshot` para auditoría.
+
+**Caso especial: FS gastado y luego revertido**
+
+- Opción A: `FS_NEGATIVE_ADJUSTMENT` + bloqueo uso FS hasta cubrir saldo
+
+- Opción B: absorber como `Marketing_Expense`\
+    **Regla dura:** elegir 1 por país (policy), no mezclar.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Tipos oficiales (no mezclar)
+
+- **FS (Fee Shields / Fee Credits):** solo platform_fee.
+
+- **BSC (Buyer Store Credit / Support Credit):** items_subtotal (y delivery si policy), no taxes/ops/processing, recomendado no platform_fee.
+
+- **GCC (Gift Card Credit):** según policy.
+
+### 5.2 Matriz de aplicabilidad (hard rules)
+
+**FS**
+
+- ✅ platform_fee
+
+- ❌ seller_net / items_subtotal
+
+- ❌ ops_fee
+
+- ❌ processing_fee
+
+- ❌ taxes
+
+**BSC**
+
+- ✅ items_subtotal (y delivery si policy)
+
+- ❌ taxes
+
+- ❌ ops_fee
+
+- ❌ processing_fee
+
+- (Recomendado) ❌ platform_fee
+
+**GCC**
+
+- ✅/❌ según policy, pero el documento exige que se decida explícitamente.
+
+### 5.3 No-compatibilidad (anti-bugs) — invariantes
+
+- FS y BSC son wallets distintas y no se mezclan en UI ni en motor.
+
+- FS nunca se aplica antes de calcular platform_fee.
+
+- BSC nunca se aplica a taxes/ops/processing.
+
+- Créditos no se “editan”: solo ledger entries (mint/spend/revoke/expire).
+
+- Montos en moneda local del país de la orden; cross-country bloqueado por defecto.
+
+### 5.4 Orden de cálculo (Torre oficial)
+
+Orden obligatorio:
+
+ 1. `items_subtotal`
+
+ 2. `cupón seller-funded` → reduce items
+
+ 3. (si aplica) **store credit (BSC/GCC)** como tender no-cash sobre items/delivery según policy
+
+ 4. `delivery`
+
+ 5. `taxes`
+
+ 6. `ops_fee` (no-discountable)
+
+ 7. `processing_fee` (no-discountable)
+
+ 8. `platform_fee`
+
+ 9. `membership benefits`
+
+10. **FS aplicado solo contra platform_fee:**
+
+- `platform_fee_after_fs = max(0, platform_fee - fs_applied)`
+
+- `fs_applied <= platform_fee`
+
+### 5.5 Conversión AP → FS (enforcer 0.5%)
+
+Policy versionada por país:
+
+- `ap_earn_rate` default 150 AP / $1 EOV
+
+- `ap_to_fs_rate` default 75,000 AP = $1 FS
+
+- Enforcer duro: `(ap_earn_rate / ap_to_fs_rate) <= 0.005`
+
+**Caps mensuales FS:**
+
+- sin membresía: $2
+
+- Aventide+: $6
+
+Si canje excede cap:
+
+- rechazar, o
+
+- permitir parcial hasta cap (recomendado) y el resto AP queda intacto.
+
+### 5.6 Gating para FS (anti-abuso)
+
+Para canjear AP→FS y/o aplicar FS:
+
+- phone verificado ✅
+
+- Buyer Trust Score ≥ 40 ✅
+
+- sin chargebacks 90 días ✅
+
+- flags de riesgo ⇒ bloquear FS X días (policy país)
+
+---
+
+## 6) Modelo de datos (tablas/colecciones, campos, índices, relaciones)
+
+### 6.1 wallets
+
+`wallets(buyer_id, country_id, type: FS|BSC|GCC, currency)`\
+Índices:
+
+- unique(`buyer_id`, `country_id`, `type`)
+
+### 6.2 wallet_ledger (append-only)
+
+`wallet_ledger(id, wallet_id, type: MINT|SPEND|REVOKE|EXPIRE, amount, source_type, order_id, dispute_id, expires_at, created_at)`\
+Campos clave:
+
+- `amount` en moneda local (positivo para MINT; negativo o positivo según convención; regla única)
+
+- `source_type` enum:
+
+    - `AP_CONVERSION`
+
+    - `REFERRAL`
+
+    - `MEMBERSHIP`
+
+    - `SUPPORT_OUTCOME`
+
+    - `GIFT_CARD_PURCHASE`
+
+    - `ADMIN_ADJUST`
+
+Índices:
+
+- (`wallet_id`, `created_at desc`)
+
+- unique idempotencia:
+
+    - spend: unique(`wallet_id`, `order_id`, `type=SPEND`) si spend se hace al confirmar orden, o unique(`wallet_id`, `checkout_id`) si spend se hace en checkout (recomendado al calcular).\
+        **Suposición:** el documento fija idempotencia conceptual, no el campo exacto; se mantiene consistencia con “idempotente por checkout”.
+
+### 6.3 ap_ledger (puntos)
+
+`ap_ledger(buyer_id, type, amount_ap, order_id, expires_at, created_at)`
+
+### 6.4 promo_snapshot (por orden)
+
+`promo_snapshot(order_id, json_snapshot, policy_versions_hash)` con:
+
+- cupón aplicado
+
+- AP earned (y multiplicadores)
+
+- FS aplicado + saldo antes/después
+
+- store credit aplicado + saldo antes/después
+
+- versiones de policy usadas
+
+---
+
+## 7) Eventos y triggers + idempotencia
+
+### Eventos mínimos
+
+- `WALLET_MINTED` (type=FS|BSC|GCC)
+
+- `WALLET_SPENT`
+
+- `WALLET_REVOKED`
+
+- `WALLET_EXPIRED`
+
+- `AP_CONVERTED_TO_FS`
+
+- `PROMO_SNAPSHOT_CREATED`
+
+### Idempotencia
+
+- Spend: idempotencia por `checkout_id` (si el spend ocurre en checkout) o por `order_id` (si ocurre al pagar).
+
+- Revoke: idempotencia por `dispute_id/refund_id/chargeback_id` + `wallet_id`.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Motor Financiero / Pagos (Sistema #2)
+
+Inputs explícitos: `coupon_id`, `fee_credits_requested`, `store_credit_requested`.\
+Outputs:
+
+- breakdown final con líneas “store_credit_applied” y “fs_applied”
+
+- `promo_snapshot` persistido.
+
+### Disputas/Soporte (Outcomes)
+
+Outcomes pueden producir:
+
+- `BuyerRefundCash`
+
+- `BuyerCreditNonCash` (BSC)
+
+- `PlatformFeeWaive/Keep`
+
+- `OpsFeeWaive/Keep`
+
+- `SellerPayoutRelease`
+
+### Lealtad
+
+- Conversión AP→FS y caps/gating compartidos.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `wallet_balance_fs_total{country}` / `wallet_balance_bsc_total{country}` (pasivo total)
+
+- `wallet_mint_total{type,source_type,country}`
+
+- `wallet_spend_total{type,country}`
+
+- `wallet_expire_total{type,country}`
+
+- `wallet_revoke_total{type,reason,country}`
+
+- `fs_gating_block_total{country,reason}`
+
+### Alertas mínimas
+
+- Spike en `wallet_mint_total{source_type=SUPPORT_OUTCOME}` (posible problema de calidad/operación)
+
+- Spike en `wallet_revoke_total` (fraude/chargebacks)
+
+- Crecimiento anormal del pasivo `wallet_balance_*_total` (budget/caps mal)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Ledger append-only es obligatorio; no se permite UPDATE de balances como fuente.
+
+- Acciones admin de ajuste (si habilitadas) requieren `reason_code` y auditoría WORM.
+
+- Cross-country bloqueado por defecto para evitar lavado/abuso.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Pagos/Torre de precios:** orden de cálculo fijo; FS después de platform_fee; BSC nunca toca taxes/ops/processing.
+
+- **Lealtad:** AP ledger y conversión AP→FS con enforcer 0.5% y caps mensuales.
+
+- **Disputas/Soporte:** outcomes deterministas pueden “mint” BSC y/o waivers; reversión por refund/chargeback.
+
+- **Facturación/Docs:** promo_snapshot por orden para documentos y auditoría.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Crédito Interno)
+
+1. **“Crédito único para todo”** → eliminado: FS/BSC/GCC separados y no mezclables.
+
+2. **Créditos pagando taxes/processing/ops_fee** → prohibido por matriz dura + MoneyGuard.
+
+3. **FS aplicado antes de platform_fee** → prohibido: FS solo al final y solo contra platform_fee (`fs_applied <= platform_fee`).
+
+4. **Balances editados “a mano”** → eliminado: solo ledger entries (mint/spend/revoke/expire).
+
+5. **Cross-country credit ambiguo** → corregido: bloqueado por defecto; moneda local del país de la orden.

@@ -1,0 +1,578 @@
+### Sistema de Capacidad y Disponibilidad v2.0 (Capacity, Scheduler, Stock, Cupos, Temporadas) — corregido y unificado
+
+**Fuente de verdad:** “Sistema #5 — Capacidad & Disponibilidad (Capacity, Scheduler, Stock, Cupos, Temporadas)”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Sistema que determina **qué se puede vender** (inventario), **cuándo** (scheduler), **en qué ventana/slot** (slots) y con qué **protección anti-sobreventa** (reservas TTL), incluyendo **temporadas de alta demanda** con overrides de capacidad, lead time, cutoff y disparadores de pricing. Su salida es una “verdad única” consumida por Búsqueda y Checkout.
+
+**Objetivos (duros):**
+
+1. Evitar promesas falsas: si el sistema dice “no hay cupo/stock/slot”, **no se puede pagar**.
+
+2. Soportar inventario polimórfico: `STOCK`, `CAPACITY`, `SLOTS`, `HYBRID`.
+
+3. Anti-colisión: “último cupo” no puede venderse dos veces (reservas atómicas + TTL + idempotencia).
+
+4. Temporadas altas “a prueba de guerra”: overrides y queue mode para estabilizar.
+
+5. Integración estricta con Cobertura: orden de validación fijo y consistente.
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- Inventario por producto: stock físico, cupos diarios (capacidad), slots por ventana horaria y combinaciones híbridas.
+
+- Scheduler de elegibilidad: horarios, breaks, vacaciones, cutoff same-day, lead time mínimo por producto/seller, tipos de entrega `ASAP` y `SCHEDULED`.
+
+- Temporadas (High-Demand Mode): override de capacidad, min lead time, cutoff, blackout dates, queue mode, catálogo restrictivo y triggers de surge pricing.
+
+- Reserva temporal (soft hold) antes del pago con TTL; consumo/release posterior; reconciliación.
+
+- Pausado automático (hard stop) por agotamiento + throttling por riesgo/reputación.
+
+### Excluye
+
+- Cobertura geográfica (Sistema de Cobertura) y geocoding: es un prerequisito; aquí se asume “PASS”.
+
+- Cálculo de precios finales: el motor de precios aplica reglas, pero el **gatillo temporal/temporada** lo define este sistema.
+
+- Pagos/escrow: la Reservation no mueve dinero.
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **BUYER:** consulta calendario/slots, crea Reservation, paga y consume.
+
+- **SELLER:** configura stock, capacidad, slots, horarios, vacaciones, temporada, pausas.
+
+- **SYSTEM/BOT:** valida disponibilidad, crea/expira reservas, autopausa, reconciliación, aplica throttling por riesgo.
+
+- **COUNTRY_OPS_LEAD / ADMIN:** define season_rules por país, activa queue mode, audita disponibilidad y reservas, throttle manual temporal.
+
+### 3.2 Permisos mínimos
+
+- `availability.read` (buyer)
+
+- `checkout.reservations.create`
+
+- `checkout.reservations.consume`
+
+- `checkout.reservations.release`
+
+- `seller.schedule.update`
+
+- `seller.capacity.update`
+
+- `seller.slots.update`
+
+- `seller.inventory.update`
+
+- `seller.season_mode.update`
+
+- `seller.listings.pause` (seller)
+
+- `system.listings.pause` (system)
+
+- `admin.throttle.seller`
+
+- `admin.availability.audit.read`
+
+- `admin.reservations.read`
+
+### 3.3 Guards (orden canónico)
+
+1. AuthGuard
+
+2. OwnershipGuard (seller_id para config; buyer_id para reservas)
+
+3. CoveragePrereqGuard (requiere contexto territorial ya resuelto y PASS por Cobertura)
+
+4. SchedulerGuard (elegibilidad temporal)
+
+5. Capacity/StockGuard (disponibilidad cuantitativa)
+
+6. SeasonPolicyGuard (si aplica temporada: overrides obligatorios)
+
+7. IdempotencyGuard (reservas)
+
+8. AuditGuard (reservas, consumo, release, autopause, throttling)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Consultar disponibilidad (Buyer)
+
+**Happy path**
+
+1. Buyer selecciona “Entregar en…” (cobertura ya validada).
+
+2. `GET /availability/product/:id?date_range` devuelve calendario:
+
+- fechas deshabilitadas por: blackout, cutoff, lead time, capacity/stock/slots llenos, season restrictions.
+
+1. Si el producto usa `SLOTS` o `HYBRID`, devuelve slots con cupos disponibles.
+
+**Edge cases**
+
+- Temporada alta con `queue_mode`: el calendario puede devolver solo “próximo slot disponible” y bloquear ASAP.
+
+- Buyer trust bajo: Scheduler puede forzar `SCHEDULED` (anti-abuso).
+
+### 4.2 Crear Reservation (Soft Hold) — núcleo anti-sobreventa
+
+**Happy path**
+
+1. Buyer elige `delivery_type` (ASAP/SCHEDULED) y `date/slot`.
+
+2. `POST /checkout/reservations` con:
+
+- `order_draft_id` (o checkout_session),
+
+- `seller_id`, `buyer_id`,
+
+- `product_allocations[]` (sku_id, qty, work_units),
+
+- `slot_id` (si aplica),
+
+- `idempotency_key`,
+
+- TTL (10–15 min).
+
+1. Backend ejecuta **operación atómica**:
+
+- reserva stock, capacidad diaria y/o slot capacity según `inventory_mode`.
+
+- si cualquiera falla: rechaza sin side effects (rollback).
+
+1. Respuesta: `reservation_id`, `expires_at`, `payload_locked`.
+
+**Edge cases**
+
+- 10 buyers simultáneos: solo uno consigue el último cupo porque el update es condicional (compare-and-set).
+
+- Reintentos: el mismo `idempotency_key` retorna la misma reserva (no crea 2).
+
+### 4.3 Consumir Reservation (pago confirmado)
+
+**Happy path**
+
+1. Pago confirmado → `POST /checkout/reservations/:id/consume`.
+
+2. Cambia `HELD → CONSUMED`.
+
+3. Se genera “allocation final” que la Orden snapshottea.
+
+**Edge cases**
+
+- Pago llega después del TTL: consume falla con `RESERVATION_EXPIRED`; checkout debe reintentar crear nueva reserva.
+
+- Doble confirmación de pago: consume es idempotente por `reservation_id` y estado.
+
+### 4.4 Release Reservation (pago fallido/cancelado)
+
+**Happy path**
+
+- `POST /checkout/reservations/:id/release` cambia `HELD → RELEASED` y libera locks (reserved_stock/reserved_units/slot_reserved).
+
+### 4.5 Expiración automática (TTL)
+
+**Happy path**
+
+- `reservations_expirer` libera expiradas (active cleanup) y el query de disponibilidad ignora expiradas (lazy cleanup).
+
+### 4.6 Auto pause & throttling
+
+**Auto pause (hard stop)**
+
+- Si `stock_on_hand == 0` o `capacity_units_day == reserved_units_day` o `slot.capacity == slot.reserved`:
+
+    - `is_paused_by_system=true` con `pause_reason_code`.\
+        **Throttling por riesgo**
+
+- Si reputación cae o disputas suben:
+
+    - reduce `capacity_units_effective` (no destruye configuración base).
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, caps, validaciones)
+
+### 5.1 Inventario polimórfico (reglas exactas)
+
+Modos:
+
+- `STOCK`: decrementa `stock_on_hand` al consumir; “reserved_stock” durante hold.
+
+- `CAPACITY`: consume `work_units` contra `seller_daily_capacity(date)`.
+
+- `SLOTS`: consume cupo contra `seller_slots(slot_id)`.
+
+- `HYBRID`: debe pasar **todas**: stock + capacity + slot.
+
+### 5.2 Scheduler (cerebro temporal)
+
+Elementos:
+
+- `seller_schedule` (días, horas, breaks, vacaciones)
+
+- `cutoff_time` (same-day)
+
+- `lead_time_minutes` (por producto o seller; puede variar por temporada)
+
+- `buffer_operativo` (safety)\
+    Regla de elegibilidad:\
+    `slot_start >= now + lead_time + buffer_operativo`
+
+### 5.3 Tipos de entrega
+
+- `ASAP`: solo si habilitado por seller y hay capacidad hoy.
+
+- `SCHEDULED`: slots predefinidos con cupos.
+
+### 5.4 High-Demand Mode (Temporadas)
+
+`season_rules` por país (event_key, fechas):
+
+- `capacity_override` o `capacity_multiplier`
+
+- `min_lead_time_override`
+
+- `cutoff_override`
+
+- `surge_multiplier` (gatillo para motor de precios)
+
+- `catalog_restrict_mode` + lista de SKUs permitidos
+
+- `blackout_dates`
+
+- `queue_mode` (solo programado / próximo slot)
+
+**Regla dura:** en temporada, la regla de temporada **sobrescribe** configuración normal (no se mezcla).
+
+### 5.5 Anti-sobreventa (reglas invariantes)
+
+- Nunca se confirma una orden pagada sin una `Reservation CONSUMED` cuando el modo lo requiere.
+
+- Toda reserva es atómica (decrement/reserve condicional).
+
+- Reintentos usan `idempotency_key` (cero holds duplicados).
+
+- Si backend dice “sin cupo”, UI debe deshabilitar fecha/slot y backend revalida igual en checkout.
+
+### 5.6 Orden de validación (una sola verdad)
+
+Orden obligatorio:
+
+1. **Cobertura** (¿llega?)
+
+2. **Scheduler** (¿es elegible temporalmente?)
+
+3. **Capacidad/Stock** (¿hay cupo/unidades?)
+
+---
+
+## 6) Modelo de datos (robusto, mínimo)
+
+### 6.1 products (config por producto)
+
+Campos:
+
+- `product_id`, `seller_id`
+
+- `inventory_mode` ENUM (STOCK|CAPACITY|SLOTS|HYBRID)
+
+- `work_units` (si CAPACITY/HYBRID)
+
+- `lead_time_minutes`
+
+- `is_paused_by_seller`
+
+- `is_paused_by_system`
+
+- `pause_reason_code`
+
+Índices:
+
+- (`seller_id`,`inventory_mode`)
+
+- (`is_paused_by_system`,`pause_reason_code`)
+
+### 6.2 product_inventory (stock físico)
+
+- `product_id`
+
+- `stock_on_hand`
+
+- `reserved_stock`
+
+Índices:
+
+- unique(`product_id`)
+
+### 6.3 seller_daily_capacity (capacidad diaria)
+
+- `seller_id`
+
+- `date`
+
+- `capacity_units`
+
+- `reserved_units`
+
+- `effective_capacity_units` (por throttling; no destructivo)
+
+Índices:
+
+- unique(`seller_id`,`date`)
+
+### 6.4 seller_slots (slots por ventana)
+
+- `slot_id`
+
+- `seller_id`
+
+- `slot_start`, `slot_end`
+
+- `capacity`
+
+- `reserved`
+
+- `is_active`
+
+Índices:
+
+- (`seller_id`,`slot_start`)
+
+- unique(`seller_id`,`slot_start`,`slot_end`) (si se usa)
+
+### 6.5 reservations (núcleo)
+
+Campos:
+
+- `reservation_id`
+
+- `seller_id`, `buyer_id`
+
+- `order_draft_id` (o `checkout_session_id`)
+
+- `expires_at`
+
+- `status` ENUM (HELD|CONSUMED|EXPIRED|RELEASED)
+
+- `idempotency_key` (unique)
+
+- `payload_json` (stock/units/slot_id bloqueados)
+
+Índices:
+
+- unique(`idempotency_key`)
+
+- (`seller_id`,`status`,`expires_at`)
+
+- (`order_draft_id`)
+
+### 6.6 season_rules (por país)
+
+- `country_id`, `event_key`, `start_at`, `end_at`
+
+- `capacity_override` o `capacity_multiplier`
+
+- `min_lead_time_override`
+
+- `cutoff_override`
+
+- `surge_multiplier`
+
+- `catalog_restrict_mode` + `allowed_skus[]`
+
+- `blackout_dates[]`
+
+- `queue_mode`
+
+Índices:
+
+- (`country_id`,`start_at`,`end_at`)
+
+- unique(`country_id`,`event_key`,`start_at`)
+
+### 6.7 price_books + price_rules (referencia)
+
+- `price_books(product_id, country_id, currency, price_amount)`
+
+- `price_rules(season_rule_id, product_id?, multiplier)`
+
+---
+
+## 7) Eventos y triggers + idempotencia
+
+### Eventos mínimos
+
+- `AVAILABILITY_CALCULATED` (por producto/rango)
+
+- `RESERVATION_HELD`
+
+- `RESERVATION_CONSUMED`
+
+- `RESERVATION_RELEASED`
+
+- `RESERVATION_EXPIRED`
+
+- `SELLER_SCHEDULE_UPDATED`
+
+- `SELLER_CAPACITY_UPDATED`
+
+- `SELLER_SLOTS_UPDATED`
+
+- `SELLER_INVENTORY_UPDATED`
+
+- `SEASON_RULE_ACTIVATED/DEACTIVATED`
+
+- `LISTING_AUTO_PAUSED/UNPAUSED`
+
+- `SELLER_THROTTLED`
+
+### Idempotencia
+
+- Reservation create: `(idempotency_key)` unique.
+
+- Consume/release: idempotente por `(reservation_id, desired_state)`
+
+- Expirer: idempotente por `(reservation_id, expires_at)`
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Cobertura
+
+- Input prerequisito: `coverage_pass=true` + contexto territorial.
+
+- Si FAIL cobertura: este sistema no corre (no slots).
+
+### Órdenes
+
+- La orden snapshottea:
+
+    - fecha/slot elegido,
+
+    - tipo de entrega,
+
+    - lead time aplicado,
+
+    - cutoff aplicado,
+
+    - temporada aplicada,
+
+    - allocation consumida desde la reservation.
+
+### Finanzas / Motor de precios
+
+- El sistema emite “gatillos”:
+
+    - `season_event_key`, `surge_multiplier`, `asap_fee_flag` (si aplica),
+
+    - delivery_type y slot influyen en delivery_fee/asap_fee (se snapshottea).
+
+### Ledger/Escrow
+
+- Reservation no mueve dinero.
+
+- Pago confirmado ⇒ consume.
+
+- Pago fallido/cancel ⇒ release/expire.
+
+### Reputación
+
+- Risk throttler reduce capacidad efectiva.
+
+- Reglas pueden deshabilitar ASAP por bajo desempeño.
+
+### Búsqueda/Ranking
+
+- Consume disponibilidad real para no empujar sellers que no pueden cumplir.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `availability_requests_total{country}`
+
+- `reservation_held_total{country}`
+
+- `reservation_consumed_total{country}`
+
+- `reservation_expired_total{country}`
+
+- `reservation_conflict_total` (fallos por no disponibilidad)
+
+- `auto_pause_total{reason,country}`
+
+- `seller_throttled_total{country}`
+
+- `season_queue_mode_enabled_total{country,event_key}`
+
+### Alertas
+
+- `reservation_expired_total / held_total` alto (UX mala o pagos lentos)
+
+- Conflictos altos (posible bug atómico)
+
+- Auto-pause spike (stock/capacidad mal configurada)
+
+- Queue mode activado demasiado temprano (capacidad insuficiente o fraude)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Toda reserva/consumo/release queda auditada con actor, timestamps, payload y motivo.
+
+- Cambios de schedule/capacity/slots/inventory y season rules son auditables (ops/seller/system).
+
+- Throttling por riesgo registra:
+
+    - score de reputación al momento,
+
+    - cap original vs efectivo,
+
+    - duración y razón.
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Cobertura:** valida “dónde” antes de “cuándo/cupo”.
+
+- **Órdenes/Pagos:** pago solo si reservation consumible y luego consumida.
+
+- **Finanzas/Precios:** surge pricing y fees por tipo de entrega gatillados por temporada/slot.
+
+- **Reputación:** throttling reduce capacidad efectiva; deshabilita ASAP si riesgo.
+
+- **Búsqueda:** muestra solo disponibilidad real y consistente con backend.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Capacidad & Disponibilidad)
+
+1. **Sobreventa por concurrencia** → corregido: Reservation TTL + operación atómica condicional + idempotency_key único.
+
+2. **Orden pagada sin cupo real** → prohibido: “no paid order sin reservation CONSUMED” cuando aplica.
+
+3. **Temporadas mezclando reglas normales** → corregido: season_rules sobrescribe (capacidad, lead time, cutoff, catálogo, queue_mode) sin mezcla.
+
+4. **UI vs backend en desacuerdo** → corregido: backend es la verdad; UI solo refleja fechas/slots deshabilitados y backend revalida en checkout.
+
+5. **Throttling destructivo (rompe config del seller)** → corregido: `effective_capacity_units` separado del `capacity_units` base (no destructivo).

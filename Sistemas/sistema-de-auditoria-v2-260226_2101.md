@@ -1,0 +1,457 @@
+### Sistema de Auditoría v2.0 (Aventide Black Box) — corregido y unificado
+
+**Fuente de verdad:** “Sistema de Auditoría Unificada (“Aventide Black Box”)”.
+
+---
+
+## 1) Definición y objetivos del sistema/módulo
+
+**Definición:** Auditoría es un sistema WORM (Write-Once, Read-Many) y append-only que registra, de forma consultable y verificable, **quién hizo qué, cuándo, dónde, sobre qué recurso y con qué evidencia**, incluyendo snapshotting (“máquina del tiempo”) para que el pasado de una orden no pueda reescribirse.
+
+**Objetivos (no negociables):**
+
+1. **WORM/append-only:** un registro de auditoría nunca se edita ni se borra.
+
+2. **Snapshotting:** demostrar cómo era algo antes de cambios (precio/fotos/listing).
+
+3. **Atribución estricta:** no existen acciones “anónimas” del sistema: siempre `User_ID` o `Service_ID`.
+
+4. Trazabilidad completa para disputas/chargebacks/auditorías fiscales: acciones administrativas, dinero, catálogo y evidencia logística/legal (PoD + chat).
+
+---
+
+## 2) Alcance (incluye / excluye)
+
+### Incluye
+
+- 4 capas auditadas obligatorias:
+
+    1. Gobernanza y Roles
+
+    2. Trail financiero (Money Trail)
+
+    3. Catálogo (Máquina del Tiempo)
+
+    4. Evidencia logística/legal (PoD + chat)
+
+- Registro de lecturas sensibles: `VIEW_SENSITIVE` obligatorio para accesos a PoD, PII vault y expedientes.
+
+- Exportabilidad: “Certificado de Auditoría” por orden (PDF/CSV) con timeline completo.
+
+- UI interna para Trust & Safety y Soporte: timeline, buscador, filtros, flags rojos.
+
+### Excluye
+
+- Ledger contable como fuente de movimientos (Ledger mueve dinero; auditoría responde “quién ordenó moverlo”).
+
+- Gestión de archivos binarios (PoD foto, chat PDF): se referencia vía `evidence_links[]` (Sistema de Archivos).
+
+---
+
+## 3) Actores y permisos (RBAC) + guards
+
+### 3.1 Actores
+
+- **SYSTEM/WORKER (Service_ID):** produce eventos obligatorios por write-path.
+
+- **BUYER/SELLER:** origen de acciones de su cuenta y órdenes (auditables).
+
+- **SUPPORT_AGENT:** crea tickets, overrides controlados, impersonation, acceso a evidencia (auditado).
+
+- **TRUST & SAFETY / MODERATOR:** consume timeline, revisa flags, ve evidencia sensible.
+
+- **COUNTRY_OPS_LEAD:** cambios operativos regionales y scopes; lectura auditada.
+
+- **FINANCE/LEGAL/AUDIT:** lectura, export, conciliación.
+
+- **SUPER_ADMIN:** configura gobernanza, publica policies; _sin privilegio de borrar auditoría_.
+
+### 3.2 Permisos mínimos
+
+- `audit.write` (solo servicios; no humanos)
+
+- `audit.read.basic` (ops/support/t&s; scoped)
+
+- `audit.read.financial` (finance/audit)
+
+- `audit.read.legal` (legal)
+
+- `audit.export.order_certificate` (support/legal/finance)
+
+- `audit.view_sensitive` (support/legal/t&s; requiere reason)
+
+- `admin.impersonation.start/stop` (support; auditado)
+
+- `admin.four_eyes.request/create/approve` (ops/admin; auditado)
+
+### 3.3 Guards
+
+1. AuthGuard
+
+2. Role/PermissionGuard
+
+3. ScopeGuard (país/hub/tenant para staff)
+
+4. EvidenceGuard (overrides financieros requieren evidence_links + reason_code)
+
+5. SensitiveReadGuard (VIEW_SENSITIVE siempre genera evento)
+
+6. WORMGuard (a nivel DB: sin UPDATE/DELETE)
+
+---
+
+## 4) Flujos end-to-end (happy path + edge cases)
+
+### 4.1 Write-path universal (toda acción crítica)
+
+**Happy path**
+
+1. Servicio de dominio ejecuta acción (ej. update de price, payout, role change).
+
+2. En la misma transacción (o mediante outbox) produce `audit_log` con:
+
+- actor (user/service),
+
+- recurso afectado,
+
+- diff `old/new`,
+
+- metadata (ip, ua, geo, request_id),
+
+- reason/evidence si aplica.
+
+**Edge cases**
+
+- Acciones “system”: nunca anónimas; deben tener `service_id` (worker) en actor_id.
+
+- Fallo en escritura de auditoría: la acción crítica debe fallar (enforcement) o entrar en modo safe (bloqueo) según severidad. (Inferencia: consistente con “toda acción crítica write debe producir evento”.)
+
+### 4.2 Gobernanza y roles (vigilar a los vigilantes)
+
+**Happy path**
+
+- `RBAC_AUDIT`: cambios de permisos/roles con IP, contexto, scope.
+
+- Alerta por escalada inusual (ej. finanzas a soporte).
+
+- Acciones críticas requieren **Four-Eyes**:
+
+    - `request_id`, `requester`, `approver`, `action`, timestamps.
+
+**Edge cases**
+
+- Impersonation: `Actor = Support_Agent` + `impersonated_user_id`; debe quedar explícito.
+
+### 4.3 Money Trail (quién ordenó mover dinero)
+
+**Happy path**
+
+- Ledger registra movimientos; auditoría registra:
+
+    - release/refund/adjustment/dispute decision,
+
+    - cambios de platform fee/comisiones (old vs new),
+
+    - payouts manuales (flag rojo),
+
+    - bypasses: `FORCE_COMPLETE` con reason_code + evidence_link.
+
+**Edge cases**
+
+- Cualquier payout manual fuera de cronograma → `flag_red=true` y visible en filtros.
+
+### 4.4 Catálogo (“Máquina del Tiempo”)
+
+**Happy path**
+
+- En `ORDER_CREATED` se guarda `product_snapshot` asociado a la orden:
+
+    - título, descripción, precio, foto principal, etc.
+
+- Cambios de stock/capacidad: registrar quién lo cambió (anti-sabotaje).
+
+**Edge cases**
+
+- Seller cambia foto después: no afecta el snapshot ya guardado.
+
+### 4.5 Evidencia logística/legal (PoD + chat)
+
+**Happy path**
+
+- PoD “caja negra” por intento: paquete JSON inmutable por intento.
+
+- Foto PoD: URL firmada privada; accesible solo roles autorizados.
+
+- Si hay disputa: export chat a PDF inmutable y anexar al expediente (evidence_links).
+
+**Edge cases**
+
+- Acceso a PoD/chat export por staff ⇒ `VIEW_SENSITIVE` con reason.
+
+### 4.6 Certificado de Auditoría (por orden)
+
+**Happy path**
+
+- `GET /audit/certificate/order/:order_id` genera PDF/CSV con timeline:\
+    `Creación → Pago → Chats → Intentos de entrega → PIN → Liberación de fondos`\
+    Incluye hash de integridad del documento y referencias a evidencias.
+
+---
+
+## 5) Reglas y políticas (límites, expiraciones, validaciones)
+
+### 5.1 WORM (no negociable)
+
+- Prohibir `UPDATE` y `DELETE` a nivel de permisos DB para `audit_logs`.
+
+- Ideal: DB/tabla separada donde ni SuperAdmin pueda borrar/modificar.
+
+### 5.2 Atribución estricta
+
+- Todo evento debe tener `actor_id` y `actor_type` (USER|SERVICE).
+
+### 5.3 Overrides financieros (control fuerte)
+
+- Requieren `reason_code + reason_text + evidence_links[]` y quedan resaltados/filtrables.
+
+### 5.4 Four-Eyes para acciones críticas
+
+- `Requester + Approver` con `request_id` en auditoría.
+
+### 5.5 Retención por tipo
+
+- Financieros/legales: 7 años.
+
+- Operativos (precio/stock): 1 año.
+
+- Logs de acceso/logins: 90 días.
+
+---
+
+## 6) Modelo de datos (audit_logs + extensiones)
+
+### 6.1 audit_logs (tabla estandarizada)
+
+Campos mínimos:
+
+- `id` (UUID)
+
+- `actor_id` (UUID)
+
+- `actor_role` (string)
+
+- `action_type` (enum: CREATE|UPDATE|DELETE|LOGIN|VIEW_SENSITIVE)
+
+- `resource_type` (string: ORDER|PRODUCT|PAYOUT|USER|POLICY|ROLE…)
+
+- `resource_id` (UUID)
+
+- `changes` (JSONB: lista `{field, old, new}`)
+
+- `metadata` (JSONB: ip, user-agent, geo, request context)
+
+- `created_at` (UTC)
+
+Extensiones requeridas (en columnas o metadata):
+
+- `request_id` (Four-Eyes)
+
+- `impersonator_id`, `impersonated_user_id` (Impersonation)
+
+- `reason_code`, `reason_text` (overrides financieros)
+
+- `evidence_links[]` (PoD foto firmada, chat PDF, docs)
+
+- `flag_red` (bool) (payout manual/override)
+
+- `country_code`, `hub_id`, `zone_id` (scoping multi-país) (Inferencia: consistente con gobernanza multi-país; requerido para filtros operativos).
+
+Índices mínimos (operación real):
+
+- (`resource_type`, `resource_id`, `created_at desc`)
+
+- (`actor_id`, `created_at desc`)
+
+- (`action_type`, `created_at desc`)
+
+- (`country_code`, `created_at desc`)
+
+- (`flag_red`, `created_at desc`)
+
+- GIN en `changes` y `metadata` para búsquedas rápidas
+
+### 6.2 product_snapshots (máquina del tiempo)
+
+- `snapshot_id`
+
+- `order_id`
+
+- `product_id`
+
+- `snapshot_json` (title/desc/price/main_photo_ref/category)
+
+- `created_at`
+
+Índices:
+
+- unique(`order_id`)
+
+- (`product_id`,`created_at desc`)
+
+### 6.3 pod_attempt_packets (caja negra)
+
+- `pod_attempt_id`
+
+- `order_id`
+
+- `attempt_no`
+
+- `packet_json` (gps, time, device, photo_file_id, pin_state, etc.)
+
+- `created_at`
+
+---
+
+## 7) Eventos y triggers (event bus/colas/webhooks) + idempotencia
+
+### Eventos mínimos (audit-aware)
+
+- `RBAC_CHANGED`
+
+- `FOUR_EYES_REQUEST_CREATED/APPROVED/EXECUTED`
+
+- `IMPERSONATION_STARTED/STOPPED`
+
+- `PAYMENT_CAPTURED`
+
+- `FUNDS_RELEASED`
+
+- `REFUND_ISSUED`
+
+- `PAYOUT_SENT`
+
+- `FORCE_COMPLETE`
+
+- `PLATFORM_FEE_CHANGED`
+
+- `PRODUCT_UPDATED`
+
+- `PRODUCT_SNAPSHOTTED_AT_ORDER_CREATED`
+
+- `POD_ATTEMPT_RECORDED`
+
+- `CHAT_EXPORTED_FOR_DISPUTE`
+
+- `VIEW_SENSITIVE_LOGGED`
+
+### Idempotencia
+
+- audit insert: idempotente por `event_id` (si se usa outbox) o por `(request_id, action_type, resource_id, created_at_bucket)` según fuente.
+
+- `product_snapshot`: idempotente por `order_id`.
+
+- `pod_attempt_packet`: idempotente por `(order_id, attempt_no)`.
+
+---
+
+## 8) Integraciones (inputs/outputs, retries, timeouts, fallbacks)
+
+### Gobernanza multi-país / Policy Engine
+
+- Cambios de rulesets/ui_profiles/flags siempre generan audit log con diff.
+
+### Motor financiero / Ledger / Rates
+
+- Cada movimiento ledger relevante se enlaza con audit `who ordered it`.
+
+- Cambios de platform fee y rates guardan old vs new para recalcular históricos.
+
+### Catálogo / Contenido
+
+- En `ORDER_CREATED`, crear `product_snapshot`.
+
+- Cambios de stock/capacidad también auditados.
+
+### Archivos
+
+- Evidencias (PoD foto, chat PDF) referenciadas por `evidence_links[]` y protegidas por URLs firmadas privadas.
+
+### Soporte / Disputas
+
+- Freeze chat, export chat, adjuntar al expediente.
+
+- Overrides manuales exigen reason+evidence y quedan visibles como flag rojo.
+
+---
+
+## 9) Observabilidad (logs, métricas, alertas, SLOs)
+
+### Métricas mínimas
+
+- `audit_events_ingested_total{resource_type,action_type,country}`
+
+- `audit_write_fail_total{service}`
+
+- `view_sensitive_total{resource_type,country}`
+
+- `four_eyes_requests_total{status,country}`
+
+- `flag_red_events_total{type,country}`
+
+- `certificate_generated_total{country}`
+
+- `audit_query_latency_ms_p50/p95`
+
+### Alertas
+
+- Cualquier `audit_write_fail_total > 0` en write-path crítico
+
+- Spike de `view_sensitive_total` (posible abuso interno)
+
+- Escalada inusual de permisos (RBAC anomaly)
+
+- Payouts manuales (flag rojo) sobre umbral
+
+- Incremento de FORCE_COMPLETE (posible bug PIN o fraude)
+
+---
+
+## 10) Seguridad y auditoría (quién hizo qué, evidencia, retención)
+
+- Auditoría se protege de admins: DB/tabla separada sin UPDATE/DELETE.
+
+- Impersonation explícita y trazable.
+
+- VIEW_SENSITIVE siempre logueado para accesos a PoD/PII/expedientes.
+
+- Retención por tipo, con prioridad fiscal/AML (7 años).
+
+---
+
+## 11) Compatibilidad con sistemas existentes (dependencias directas)
+
+- **Órdenes:** snapshot de producto al crear la orden.
+
+- **Pagos/Ledger:** trail “quién ordenó mover dinero”, overrides con reason+evidence.
+
+- **Disputas:** export de chat, PoD caja negra, VIEW_SENSITIVE en consultas.
+
+- **Gobernanza multi-país:** auditar cambios de policies/ui_profiles/flags con diffs.
+
+- **Archivos:** PoD y chat PDFs via links firmados privados.
+
+---
+
+### Conflictos/incoherencias corregidas (dentro de Auditoría)
+
+1. **Logs editables/borrables** → eliminado: WORM append-only, sin UPDATE/DELETE incluso para SuperAdmin.
+
+2. **Acciones del sistema sin responsable** → eliminado: atribución estricta con `Service_ID`.
+
+3. **Cambios de catálogo rompen disputas (“lo cambiaron después”)** → corregido: `product_snapshot` en `ORDER_CREATED`.
+
+4. **Overrides financieros sin evidencia** → prohibido: reason_code + evidence_links obligatorios y flag rojo.
+
+5. **Acceso a evidencia sensible sin rastro** → corregido: `VIEW_SENSITIVE` obligatorio en lecturas sensibles.
+
+6. **Four-Eyes ausente en acciones críticas** → corregido: request/approve/execute con `request_id` trazable.
