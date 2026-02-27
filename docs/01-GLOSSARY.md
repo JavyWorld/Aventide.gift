@@ -1,6 +1,6 @@
 # 01 · Glosario maestro
 
-Este glosario define el vocabulario oficial de la plataforma y su alineación con los 38 dominios canónicos en `docs/02-DOMAINS/`.
+Este glosario define el vocabulario oficial de la plataforma y su alineación con los 38 dominios canónicos en `docs/02-DOMAINS/`, además de su trazabilidad con la nueva estructura de `Sistemas/`.
 
 ## Convención obligatoria
 
@@ -160,6 +160,10 @@ Cada término del registro maestro debe incluir:
 | Legacy / conflictivo | Canónico obligatorio | Resolución de uso |
 |---|---|---|
 | `sistema-de-observalidad` | `observability` | Mantener solo como alias histórico; en contratos y documentación nueva usar `observability`. |
+| `sistema-de-seguidad` | `security` | Corregido en rutas físicas y nomenclatura; conservar solo como alias legacy en referencias históricas. |
+| `facturacin--documentos` | `billing-docs` | Corregido en rutas físicas y nomenclatura; usar `billing-docs` o `facturacion-documentos` según contexto. |
+| `sistema-gobernanza-multi-pas--app-camalen` | `governance-cameleon` | Alias legacy por typo; usar exclusivamente forma canónica en contratos y dominios. |
+
 | `disputas` | `disputes` | Alias permitido únicamente para navegación legacy; términos normativos en inglés canónico. |
 | `facturacion--documentos` | `billing-docs` | Normalizar referencias y rutas a `billing-docs`. |
 | `waterfall-engine-v10` | `waterfall` | Eliminar sufijos de versión del nombre del dominio; versionar dentro de contratos. |

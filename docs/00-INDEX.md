@@ -1,6 +1,6 @@
 # 00 · Índice Maestro del Sistema
 
-> **Ubicación de fuentes históricas:** los 38 archivos `.docx` están en `Sistemas/*.docx`.
+> **Ubicación de fuentes estructuradas:** las 37 especificaciones base están organizadas por subcarpetas en [`/Sistemas`](../Sistemas/00-INDEX.md).
 
 ## Enlaces de navegación
 
@@ -10,7 +10,7 @@
 - [04-CHANGELOG](./04-CHANGELOG.md)
 - [05-DEPLOY-GATES](./05-DEPLOY-GATES.md)
 - [06-MASTER-BLUEPRINT](./06-MASTER-BLUEPRINT.md) · puerta de entrada onboarding IA/humano
-- [07-SISTEMAS-TRANSCRITOS](./07-SISTEMAS-TRANSCRITOS/) · espejo Markdown 38/38 de `Sistemas/*.docx`
+- [07-SISTEMAS-TRANSCRITOS](./07-SISTEMAS-TRANSCRITOS/) · espejo Markdown canónico del histórico documental
 
 ---
 
@@ -28,11 +28,14 @@ Estados permitidos para seguimiento: `pendiente` · `en curso` · `cerrado`.
 
 ---
 
-## 1) Inventario completo (38 fuentes)
+## 1) Inventario completo (37 fuentes activas en `/Sistemas`)
 
 ## 1.1) Política de transición de fuentes
 
-- **Fase A (vigente como respaldo histórico):** los `.docx` en `Sistemas/*.docx` se conservan como respaldo de origen.
+> Nota: `platform-structure` permanece documentado en `docs/02-DOMAINS/platform-structure/` y `docs/07-SISTEMAS-TRANSCRITOS/platform-structure.md`; no existe archivo fuente homólogo dentro de `/Sistemas` en esta iteración.
+
+
+- **Fase A (vigente como respaldo histórico):** las especificaciones base en `Sistemas/` se conservan como respaldo operativo (fuente editable actual).
 - **Fase B (vigente como fuente operativa):** la documentación canónica en `docs/`, `docs/02-DOMAINS/*` y el espejo completo `docs/07-SISTEMAS-TRANSCRITOS/*` es la fuente de trabajo para operación, cambios y revisiones.
 - **Fase C (objetivo):** retiro de `/Sistemas` cuando todos los dominios cumplan criterios de paridad y exista validación integral registrada.
 
@@ -49,7 +52,7 @@ Un sistema se considera en paridad cuando su dominio canónico demuestra, como m
 
 ## 1.3) Estado de transición por sistema
 
-Estados permitidos: `pendiente` · `parcial` · `validado` · `listo para retiro docx`.
+Estados permitidos: `pendiente` · `parcial` · `validado` · `listo para retiro legacy`.
 
 | Sistema (.docx en `Sistemas/`) | Dominio canónico | Estado |
 |---|---|---|
