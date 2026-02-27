@@ -1,6 +1,8 @@
 # 07 · Sistemas transcritos (espejo Markdown de `/Sistemas`)
 
-Esta carpeta contiene la transcripción integral en `.md` de los 38 documentos históricos en `Sistemas/*.docx`, para uso operativo sin dependencia del formato `.docx`.
+Esta carpeta contiene la transcripción integral en `.md` del histórico documental del proyecto.
+
+> Estado actual de fuentes base: `/Sistemas` contiene 37 especificaciones estructuradas por subcarpetas (ver `Sistemas/00-INDEX.md`). El dominio `platform-structure` se mantiene en esta capa transcrita y en `docs/02-DOMAINS/`.
 
 ## Criterio de esta capa
 
@@ -8,7 +10,7 @@ Esta carpeta contiene la transcripción integral en `.md` de los 38 documentos h
 - Se vincula 1:1 con los dominios canónicos de `docs/02-DOMAINS/`.
 - No sustituye contratos canónicos (`API/DATA/EVENT`) ni runbooks del dominio; los complementa como “transcripción total”.
 
-## Cobertura 38/38
+## Cobertura histórica 38/38 (transcripción)
 
 | Fuente `.docx` | Dominio canónico | Transcripción `.md` | Palabras transcritas (aprox.) |
 |---|---|---|---:|
